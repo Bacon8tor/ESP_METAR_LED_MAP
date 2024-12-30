@@ -37,6 +37,9 @@ The flight categories are determined by the following parameters:
 3. **Connect to WiFi**
    Boot the ESP and you should see a WiFi named IFR_MAP_WIFI, you will be then able to connect to your Own Wifi Network.
 
+## ISSUES 
+1. The Ceilings for each airport needs to be be corrected to choose the lowest ceiling, and that uses the ceiling for each airport and not the others. 
+
 ## License
 
 This project is open-source and available under the MIT License.
