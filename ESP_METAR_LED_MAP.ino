@@ -3,7 +3,7 @@
 #include <FastLED.h>
 
 // Debug mode
-bool debug = false; // Set to false to disable Serial output
+bool debug = true; // Set to false to disable Serial output
 
 // Sleep duration (60 minutes)
 #define SLEEP_DURATION 60 * 60 * 1000000ULL // Microseconds
