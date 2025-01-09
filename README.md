@@ -32,9 +32,22 @@ The flight categories are determined by the following parameters:
    - FastLED
 
 2. **Configure Airports:**
-   Modify the list of airports in the code to get METAR data for the desired locations.
-
-3. **Connect to WiFi**
+   Modify the list of airports in the code to get METAR data for the desired locations. Using the Airports ICAO Code, order them according to how you laid out the LEDS on Your map,starting with 0(zero).
+   `Airport airports[] = {
+   //{"ICAO",LED_POSITION} //Example
+  {"KSFO", 0},  // San Francisco International Airport
+  {"KLAX", 1},  // Los Angeles International Airport
+  {"KPHX", 2},  // Phoenix Sky Harbor International Airport
+  {"KJFK", 3},  // John F. Kennedy International Airport*
+  {"KORD", 4}  // Chicago O'Hare International Airport
+  };`
+3. **Change NUM_AIRPORTS**
+  Change this to how many airports you added above.
+4. **Data Pin**
+  Make sure you have your data pin set to your Data Pin on your leds. 
+5. **Upload**
+  Project should work with any flavor of the ESP32 Family, but I have had the best luck with the more common ESP32 Dev Module. Make sure you have your esp32 boards installed, as well as the libraries above. 
+6. **Connect to WiFi**
    Boot the ESP and you should see a WiFi named IFR_MAP_WIFI, you will be then able to connect to your Own Wifi Network.
 
 ## ISSUES 
@@ -43,6 +56,9 @@ The flight categories are determined by the following parameters:
 ## Wokwi Project 
 If you want to experiment with this code try Wokwi its a free esp simulator, I have adapted the project to work with their Wifi connection. I have noticed sometimes it doesnt work and sometimes takes a long time to compile. [Wokwi_Metar_Project](https://wokwi.com/projects/418459180318780417) .
 
+## Arduino Cloud Sketch
+You can also use the arduino cloud editor to edit and upload the sketch. 
+[Arduino_Cloud_Sketch](https://app.arduino.cc/sketches/994ec304-6f9b-4d0b-b816-7703e34aebc3?view-mode=preview)
 ## License
 
 This project is open-source and available under the MIT License.
