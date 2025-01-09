@@ -39,7 +39,9 @@ The flight categories are determined by the following parameters:
 
 ## ISSUES 
 1. The Ceilings for each airport needs to be be corrected to choose the lowest ceiling, and that uses the ceiling for each airport and not the others. -FIXED
-   
+
+## Wokwi Project 
+If you want to experiment with this code try Wokwi its a free esp simulator, I have adapted the project to work with their Wifi connection. I have noticed sometimes it doesnt work and sometimes takes a long time to compile. [Wokwi_Metar_Project](https://wokwi.com/projects/418459180318780417) .
 
 ## License
 
