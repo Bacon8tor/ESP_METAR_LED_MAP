@@ -41,13 +41,13 @@ The flight categories are determined by the following parameters:
   {"KJFK", 3},  // John F. Kennedy International Airport*
   {"KORD", 4}  // Chicago O'Hare International Airport
   };`
-3. **Change NUM_AIRPORTS**
+4. **Change NUM_AIRPORTS**
   Change this to how many airports you added above.
-4. **Data Pin**
+5. **Data Pin**
   Make sure you have your data pin set to your Data Pin on your leds. 
-5. **Upload**
+6. **Upload**
   Project should work with any flavor of the ESP32 Family, but I have had the best luck with the more common ESP32 Dev Module. Make sure you have your esp32 boards installed, as well as the libraries above. 
-6. **Connect to WiFi**
+7. **Connect to WiFi**
    Boot the ESP and you should see a WiFi named IFR_MAP_WIFI, you will be then able to connect to your Own Wifi Network.
 
 ## ISSUES 
