@@ -20,7 +20,7 @@ Airport airports[] = {
   {"KSFO", 0},  // San Francisco International Airport
   {"KLAX", 1},  // Los Angeles International Airport
   {"KPHX", 2},  // Phoenix Sky Harbor International Airport
-  {"KJFK", 3},  // John F. Kennedy International Airport
+  {"KJFK", 3},  // John F. Kennedy International Airport*
   {"KORD", 4},  // Chicago O'Hare International Airport
   {"KATL", 5},  // Hartsfield-Jackson Atlanta International Airport
   {"KDFW", 6},  // Dallas/Fort Worth International Airport
@@ -28,12 +28,12 @@ Airport airports[] = {
   {"KMIA", 8},  // Miami International Airport
   {"KSEA", 9},  // Seattle-Tacoma International Airport
   {"KIAH", 10}, // George Bush Intercontinental Airport
-  {"KBOS", 11}, // Boston Logan International Airport
+  {"KBOS", 11}, // Boston Logan International Airport*
   {"KLAS", 12}, // Harry Reid International Airport (Las Vegas)
   {"KEWR", 13}, // Newark Liberty International Airport
-  {"KDTW", 14}, // Detroit Metropolitan Airport
+  {"KDTW", 14}, // *Detroit Metropolitan Airport
   {"KMCO", 15}, // Orlando International Airport
-  {"KPHL", 16}, // Philadelphia International Airport
+  {"KPHL", 16}, // *Philadelphia International Airport
   {"KSLC", 17}, // Salt Lake City International Airport
   {"KMSP", 18}, // Minneapolis-Saint Paul International Airport
   {"KCLT", 19}, // Charlotte Douglas International Airport
@@ -52,10 +52,10 @@ Airport airports[] = {
   {"KRDU", 32}, // Raleigh-Durham International Airport
   {"KAUS", 33}, // Austin-Bergstrom International Airport
   {"KSAT", 34}, // San Antonio International Airport
-  {"KPIT", 35}, // Pittsburgh International Airport
+  {"KPIT", 35}, // *Pittsburgh International Airport
   {"KIND", 36}, // Indianapolis International Airport
   {"KMEM", 37}, // Memphis International Airport
-  {"KCVG", 38}, // Cincinnati/Northern Kentucky International Airport
+  {"KCVG", 38}, // *Cincinnati/Northern Kentucky International Airport
   {"KCMH", 39}, // John Glenn Columbus International Airport
   {"KOKC", 40}, // Will Rogers World Airport (Oklahoma City)
   {"KMSY", 41}, // Louis Armstrong New Orleans International Airport
@@ -107,7 +107,7 @@ float convertFractionToFloat(const String& fraction) {
 
 int extractCeiling(const String& response, int start) {
   int lowestCeiling = 99999; // Default to unlimited ceiling (no clouds)
-  const char* cloudTypes[] = {"OVC", "BKN", "SCT", "FEW"};
+  const char* cloudTypes[] = {"OVC", "BKN"};//, "SCT", "FEW"};
 
   // Iterate through all possible cloud types
   for (const char* cloudType : cloudTypes) {
