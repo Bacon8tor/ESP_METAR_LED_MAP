@@ -23,7 +23,9 @@ The flight categories are determined by the following parameters:
 - [WiFiManager](https://github.com/tzapu/WiFiManager): Used to manage Wi-Fi connections easily.
 - [HttpClient](https://github.com/amcewen/HttpClient): Used for making HTTP requests.
 - [FastLED](https://github.com/FastLED/FastLED): Controls WS2812B LEDs to display the flight category status.
-
+- [Preferences]
+- [ESPmDNS]
+- [ESPAsyncWebServer]
 ## Setup
 
 1. **Install required libraries:**
@@ -33,16 +35,10 @@ The flight categories are determined by the following parameters:
 
 2. **Configure Airports:**
    Modify the list of airports in the code to get METAR data for the desired locations. Using the Airports ICAO Code, order them according to how you laid out the LEDS on Your map,starting with 0(zero).
-   `Airport airports[] = {
-   //{"ICAO",LED_POSITION} //Example
-  {"KSFO", 0},  // San Francisco International Airport
-  {"KLAX", 1},  // Los Angeles International Airport
-  {"KPHX", 2},  // Phoenix Sky Harbor International Airport
-  {"KJFK", 3},  // John F. Kennedy International Airport*
-  {"KORD", 4}  // Chicago O'Hare International Airport
-  };`
-4. **Change NUM_AIRPORTS**
-  Change this to how many airports you added above.
+   `// Variables Place in same order as leds are wired
+String airports[] = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", 
+                     "KSDL", "KFFZ", "KIWA", "KSRQ", "KSPG",
+                     "KPIE", "KTPA", "KBKV", "KZPH", "KLAL"};`
 5. **Data Pin**
   Make sure you have your data pin set to your Data Pin on your leds. 
 6. **Upload**
@@ -59,6 +55,9 @@ If you want to experiment with this code try Wokwi its a free esp simulator, I h
 ## Arduino Cloud Sketch
 You can also use the arduino cloud editor to edit and upload the sketch. 
 [Arduino_Cloud_Sketch](https://app.arduino.cc/sketches/994ec304-6f9b-4d0b-b816-7703e34aebc3?view-mode=preview)
+
+
+
 ## License
 
 This project is open-source and available under the MIT License.
