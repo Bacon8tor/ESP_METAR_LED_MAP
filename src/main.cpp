@@ -6,7 +6,7 @@
 #include <Preferences.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
-
+#include <Update.h>
 //Pin for LEDs
 #define DATA_PIN 25
 // Debug mode
@@ -76,7 +76,6 @@ void debugPrint(const char* format, ...) {
     va_end(args);
   }
 }
-
 
 // Function to get the value of a setting by name (loads from Preferences)
 int getSettingValue(const char* key) {
@@ -273,6 +272,33 @@ void fetchMetarData() {
   http.end();
 }
 
+void handleFileUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+  if (index == 0) { // Start of file upload
+      Serial.println("Upload Start");
+      // Prepare the update
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+          Serial.println("Update failed to begin");
+          return;
+      }
+  }
+
+  // Write the uploaded data
+  if (!Update.write(data, len)) {
+      Serial.println("Update failed while writing");
+      return;
+  }
+
+  if (final) {
+      // End of file upload
+      if (Update.end()) {
+          Serial.println("Update complete");
+          ESP.restart();  // Restart ESP after successful update
+      } else {
+          Serial.println("Update failed during finalization");
+      }
+  }
+}
+
 // Serve the HTML webpage
 void serveWebPage() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -322,47 +348,98 @@ void serveWebPage() {
                   </form>
                   <br>
                   <button onclick="fetchWeather()" class="btn btn-secondary btn-block">Fetch Weather Data</button>
+                  
+                  <!-- Move the airport list below -->
+                  <p>Airports being monitored are:</p>
+                  <div class="airport-list">
+      )rawliteral";
+
+      // Add each airport as a list item
+      for (size_t i = 0; i < sizeof(airports) / sizeof(airports[0]); i++) {
+          html += "<div>" + airports[i] + "</div>";
+      }
+
+      // Apply CSS class based on the number of airports
+      size_t numAirports = sizeof(airports) / sizeof(airports[0]);
+      if (numAirports > 30) {
+          html += "<style>.airport-list { grid-template-columns: repeat(4, 1fr); }</style>";  // Four columns
+      } else if (numAirports >= 20) {
+          html += "<style>.airport-list { grid-template-columns: repeat(3, 1fr); }</style>";  // Three columns
+      } else if (numAirports >= 10) {
+          html += "<style>.airport-list { grid-template-columns: repeat(2, 1fr); }</style>";  // Two columns
+      }
+
+      html += R"rawliteral(
+                  </div>
+                  <div>
+                    <h2>Upload Firmware(Coming Soon)</h2>
+                    <form method="POST" enctype="multipart/form-data" action="/update">
+                      <input type="file" name="firmware" disabled/>
+                      <input type="submit" value="Upload" disabled />
+                    </form>
+                  </div>
               </div>
+
+              <!-- Bootstrap JS, Popper.js, and jQuery (required for Bootstrap components) -->
+              <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+              <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+              <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+              <script>
+                  function fetchWeather() {
+                      fetch('/fetch');
+                      alert('Weather data fetch triggered!');
+                  }
+              </script>
           </body>
           </html>
       )rawliteral";
+    request->send(200, "text/html", html);
+});
 
-      request->send(200, "text/html", html);
-  });
+server.on("/updatebrightness", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("brightness", true)) {
+        ledBrightness = request->getParam("brightness", true)->value().toInt();
+        FastLED.setBrightness(ledBrightness);
+        FastLED.show();
+        setSettingValue("led_brightness", ledBrightness);
+        debugPrint("New Led Brightness: %d\n", ledBrightness);
+    }
+    request->redirect("/");
+});
 
-  server.on("/updatebrightness", HTTP_POST, [](AsyncWebServerRequest *request) {
-      if (request->hasParam("brightness", true)) {
-          ledBrightness = request->getParam("brightness", true)->value().toInt();
-          FastLED.setBrightness(ledBrightness);
-          FastLED.show();
-          setSettingValue("led_brightness", ledBrightness);
-          debugPrint("New Led Brightness: %d\n", ledBrightness);
-      }
-      request->redirect("/");
-  });
+server.on("/updatestarttime", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("starttime", true)) {
+        int startTime = request->getParam("starttime", true)->value().toInt();
+        setSettingValue("start_time", startTime);
+        debugPrint("New Start Time: %d\n", startTime);
+    }
+    request->redirect("/");
+});
 
-  server.on("/updatestarttime", HTTP_POST, [](AsyncWebServerRequest *request) {
-      if (request->hasParam("starttime", true)) {
-          int startTime = request->getParam("starttime", true)->value().toInt();
-          setSettingValue("start_time", startTime);
-          debugPrint("New Start Time: %d\n", startTime);
-      }
-      request->redirect("/");
-  });
+server.on("/updateendtime", HTTP_POST, [](AsyncWebServerRequest *request) {
+    if (request->hasParam("endtime", true)) {
+        int endTime = request->getParam("endtime", true)->value().toInt();
+        setSettingValue("end_time", endTime);
+        debugPrint("New End Time: %d\n", endTime);
+    }
+    request->redirect("/");
+});
 
-  server.on("/updateendtime", HTTP_POST, [](AsyncWebServerRequest *request) {
-      if (request->hasParam("endtime", true)) {
-          int endTime = request->getParam("endtime", true)->value().toInt();
-          setSettingValue("end_time", endTime);
-          debugPrint("New End Time: %d\n", endTime);
-      }
-      request->redirect("/");
-  });
+server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
+    fetchMetarData();
+    request->send(200, "text/plain", "Metar fetch triggered.");
+});
 
-  server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
-      fetchMetarData();
-      request->send(200, "text/plain", "Metar fetch triggered.");
-  });
+// Corrected file upload route with separated POST handler
+server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
+  if (Update.hasError()) {
+      request->send(200, "text/plain", "Update Failed");
+  } else {
+      request->send(200, "text/plain", "Update Success, restarting...");
+      ESP.restart();
+  }
+}, handleFileUpload);
+
 }
 
 // Wi-Fi setup

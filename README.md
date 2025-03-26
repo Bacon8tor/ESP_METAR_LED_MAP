@@ -20,12 +20,15 @@ The flight categories are determined by the following parameters:
 
 ## Libraries Used
 
-- [WiFiManager](https://github.com/tzapu/WiFiManager): Used to manage Wi-Fi connections easily.
-- [HttpClient](https://github.com/amcewen/HttpClient): Used for making HTTP requests.
-- [FastLED](https://github.com/FastLED/FastLED): Controls WS2812B LEDs to display the flight category status.
-- [Preferences]
-- [ESPmDNS]
-- [ESPAsyncWebServer]
+|-- ArduinoJson @ 7.3.1
+|-- AsyncTCP-esphome @ 2.1.4
+|-- ESPAsyncWebServer-esphome @ 3.1.0
+|-- FastLED @ 3.9.13
+|-- HTTPClient @ 2.0.0
+|-- NTPClient @ 3.2.1
+|-- Preferences @ 2.0.0
+|-- WiFiManager @ 2.0.17
+
 ## Setup
 
 1. **Install required libraries:**
@@ -49,13 +52,9 @@ String airports[] = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT",
 ## ISSUES 
 1. The Ceilings for each airport needs to be be corrected to choose the lowest ceiling, and that uses the ceiling for each airport and not the others. -FIXED
 
-## Wokwi Project 
-If you want to experiment with this code try Wokwi its a free esp simulator, I have adapted the project to work with their Wifi connection. I have noticed sometimes it doesnt work and sometimes takes a long time to compile. [Wokwi_Metar_Project](https://wokwi.com/projects/418459180318780417) .
 
-## Arduino Cloud Sketch
-You can also use the arduino cloud editor to edit and upload the sketch. 
-[Arduino_Cloud_Sketch](https://app.arduino.cc/sketches/994ec304-6f9b-4d0b-b816-7703e34aebc3?view-mode=preview)
-
+## Platformio Project
+I have made this project into a platformio project, and have included the library folders locally. 
 
 
 ## License
