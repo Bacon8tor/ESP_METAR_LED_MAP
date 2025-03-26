@@ -1,0 +1,479 @@
+#include <NTPClient.h>
+#include <ArduinoJson.h>
+#include <WiFiManager.h>
+#include <HTTPClient.h>
+#include <FastLED.h>
+#include <Preferences.h>
+#include <ESPAsyncWebServer.h>
+#include <AsyncTCP.h>
+
+//Pin for LEDs
+#define DATA_PIN 25
+// Debug mode
+bool debug = false;
+
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP, "pool.ntp.org", -25200, 60000); //set for MST -7 
+
+// Time Zone	Offset (Hours)	Offset (Seconds)
+// UTC	0	0
+// Eastern (EST)	-5	-18000
+// Central (CST)	-6	-21600
+// Mountain (MST)	-7	-25200
+// Pacific (PST)	-8	-28800
+// UTC+1	+1	3600
+// UTC+2	+2	7200
+// UTC+3	+3	10800
+
+//Condition Colors Green , red , blue 
+CRGB vfr_color(255,0,0);
+CRGB mvfr_color(0,0,255);
+CRGB ifr_color(0,255,0);
+CRGB lifr_color(255,120,180);
+
+// Timing interval (15 minutes)
+constexpr unsigned long INTERVAL = 15 * 60 * 1000; // Milliseconds
+          
+//brads map
+//String airports[] = {"KDUG", "KOLS", "KTUS", "KPHX", "KNYL", "KGXF", "KPAN", "KSOW", "KDVT", "KINW", "KPGA", "KFLG", "KIGM", "KGCN", "KPRC", "KCMR", "KSEZ"};
+
+//BRADS FRIENDS MAP 
+String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
+
+//DONT CHANGE ANYTHING BELOW HERE
+// Default brightness
+int ledBrightness = 80; 
+
+struct Preference {
+  const char* key;
+  int value;
+};
+
+Preference settings[] = {
+{"led_brightness",125}
+};
+
+Preferences preferences;
+
+unsigned long previousMillis = 0;
+const int NUM_AIRPORTS = sizeof(airports) / sizeof(airports[0]);
+CRGB leds[NUM_AIRPORTS];
+
+DynamicJsonDocument doc(4092); // Adjust size as needed
+JsonArray lastMetars;
+
+// Web server setup
+AsyncWebServer server(80);
+
+// Debug print helper
+void debugPrint(const char* format, ...) {
+  if (debug) {
+    va_list args;
+    va_start(args, format);
+    vprintf(format, args);
+    va_end(args);
+  }
+}
+
+//Save and load brightness 
+void saveBrightness() {
+    preferences.begin("led_config", false);  // Open the "led_config" namespace for writing
+    preferences.putInt(settings[0].key, ledBrightness);  // Store the ledBrightness value
+    preferences.end();  // Close the preferences
+  debugPrint("Led Brightness saved to %d\n",ledBrightness);
+}
+
+void loadBrightness() {
+  
+    preferences.begin("led_config", true);  // Open the "led_config" namespace for reading
+    ledBrightness = preferences.getInt(settings[0].key, 125);  // Read the saved brightness value or default to 125
+    preferences.end();  // Close the preferences
+  debugPrint("Led Brightness loaded to %d\n",ledBrightness);
+  
+}
+
+// Function to determine flight category
+String determineFlightCategory(float visibility, int ceiling,String type) {
+  if(type == "FEW" || "CLR" || "SCT"){
+    ceiling = 10000;
+  }
+  if (visibility > 5.0 && ceiling > 3000) {
+    return "VFR"; // Visual Flight Rules
+  } else if (visibility >= 3.0 && visibility <= 5.0 || (ceiling >= 1000 && ceiling <= 3000)) {
+    return "MVFR"; // Marginal Visual Flight Rules
+  } else if (visibility >= 1.0 && visibility < 3.0 || (ceiling >= 500 && ceiling < 1000)) {
+    return "IFR"; // Instrument Flight Rules
+  } else if (visibility < 1.0 || ceiling < 500) {
+    return "LIFR"; // Low Instrument Flight Rules
+  }
+
+  return "N/A"; // Catch-all for undetermined cases
+}
+
+void setLEDColor(String flightCat, int LED){
+    // Set the LED color based on flight category
+          if (flightCat == "VFR") {
+            leds[LED] = vfr_color;
+          } else if (flightCat == "MVFR") {
+            leds[LED] = mvfr_color;
+          } else if (flightCat == "IFR") {
+            leds[LED] = ifr_color;
+          } else if (flightCat == "LIFR") {
+            leds[LED] = lifr_color;
+          }
+}
+
+//Get METAR Data and Set LED Colors
+void fetchMetarData() {
+  // Construct API URL
+  String url = "https://aviationweather.gov/api/data/metar?format=json&ids=";
+  for (int i = 0; i < NUM_AIRPORTS; i++) {
+    if (i > 0) url += ",";
+    url += airports[i];
+  }
+
+  debugPrint("Fetching weather data from: %s\n", url.c_str());
+
+  HTTPClient http;
+  http.begin(url);
+
+  int httpCode = http.GET();
+  if (httpCode == HTTP_CODE_OK) {
+    debugPrint("HTTP request successful.\n");
+
+    String payload = http.getString();
+   
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+      debugPrint("JSON deserialization failed: %s\n", error.c_str());
+      return;
+    }
+     JsonArray metars = doc.as<JsonArray>();
+    for (int i = 0; i < NUM_AIRPORTS; i++) {
+      const char* airportIcao = airports[i].c_str();
+
+      // Search through the METAR data for the matching ICAO code
+      bool found = false;
+      for (JsonObject metar : metars) {
+        const String icaoId = metar["icaoId"];
+
+        if (icaoId == airportIcao) {
+          found = true;
+          
+          // Fetch and process METAR data for this airport
+          float temp = metar["temp"];
+          temp = (temp  * 9.0 / 5.0) + 32.0;
+          int wdir = metar["wdir"];
+          int wspd = metar["wspd"];
+          const char* rawOb = metar["rawOb"];
+          const char* name = metar["name"];
+          int ceiling = -1; // Initialize ceiling to invalid value
+          const char* cloudType;
+          float altimeter = metar["altim"];
+          altimeter = altimeter * 0.02952998;
+          
+          float visib;
+            if (metar["visib"].is<const char*>()) {
+              String visibStr = metar["visib"].as<const char*>();
+              if (visibStr == "10+") {
+                visib = 10.0; // Use 10.1 to represent "10+" as a float
+              } else {
+                visib = visibStr.toFloat(); // Convert string to float
+              }
+            } else if (metar["visib"].is<float>()) {
+              visib = metar["visib"].as<float>(); // Directly assign float values
+            } else {
+              visib = -1.0; // Default value for missing or invalid data
+            }
+          
+          // Determine ceiling based on cloud types OVC, BKN, CLR
+          if (metar.containsKey("clouds") && !metar["clouds"].isNull()) {
+            JsonArray clouds = metar["clouds"].as<JsonArray>();
+            for (JsonObject cloud : clouds) {
+              const char* cover = cloud["cover"];
+              int base = cloud["base"] | -1; // Default to -1 if base is missing
+
+              if (base > 0 && (strcmp(cover, "OVC") == 0 || strcmp(cover, "BKN") == 0)) {
+                if (ceiling == -1 || base < ceiling) {
+                  ceiling = base; // Find the lowest cloud base of OVC or BKN
+                  cloudType = cover;
+                }
+              }
+              // If cloud cover is CLR (clear), set visibility to CLR
+              if (strcmp(cover, "FEW") == 0 || strcmp(cover, "SCT") == 0)               {
+                ceiling = base;  // Clear visibility
+                cloudType = cover;
+              }
+              if (strcmp(cover, "CLR") == 0 ){
+                ceiling = 60000;  // Clear visibility
+                cloudType = cover;
+              }
+            }
+          }
+
+          // Determine the flight category based on visibility and ceiling
+          String flightCategory = determineFlightCategory(visib, ceiling,cloudType);
+
+          debugPrint("\nAirport: %s\n", name ? name : "Unknown");
+          debugPrint("  ICAO ID: %s\n", icaoId ? icaoId : "Unknown");
+          debugPrint("  Flight Conditions: %s\n", flightCategory);
+          debugPrint("  Temperature: %.2f°F\n", temp != -999 ? temp : NAN);
+          debugPrint("  Altimeter: %.2f inHg\n",altimeter != -999 ? altimeter : NAN);
+          debugPrint("  Wind Direction: %s\n", wdir != -1 ? String(wdir).c_str() : "Unknown");
+          debugPrint("  Wind Speed: %s knots\n", wspd != -1 ? String(wspd).c_str() : "Unknown");
+          debugPrint("  Visibility: %.2f miles\n", visib != -999 ? visib : NAN);
+          debugPrint("  Clouds: %s at %s\n",cloudType,String(ceiling).c_str());
+          debugPrint("  Metar Report: %s\n", rawOb ? rawOb : "Unknown");
+          
+
+          setLEDColor(flightCategory,i);
+          
+
+          break; // Found the airport, no need to continue searching for this airport
+        }
+      }
+
+      // If the airport's ICAO code wasn't found in the METAR response
+      if (!found) {
+        debugPrint("Missing METAR data for ICAO: %s\n", airportIcao);
+        leds[i] = CRGB::Black;  // Set a default color if METAR is missing
+      }
+    }
+    lastMetars = metars;
+  } else {
+    debugPrint("HTTP request failed with code: %d\n", httpCode);
+  }
+  
+  FastLED.show();
+  http.end();
+}
+
+// Serve the HTML webpage
+void serveWebPage() {
+     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+        String html = R"rawliteral(
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>ESP Metar Map Config</title>
+                <!-- Bootstrap CSS -->
+                <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+                <style>
+                    body { margin: 20px; }
+                    .container { max-width: 600px; }
+                    .form-group { margin-bottom: 1rem; }
+
+                    /* Default to one column */
+                    .airport-list {
+                        display: grid;
+                        grid-template-columns: repeat(1, 1fr); /* 1 column by default */
+                        gap: 10px;
+                    }
+
+                    /* For 10-19 airports, switch to two columns */
+                    .airport-list.two-columns {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+
+                    /* For 20-29 airports, switch to three columns */
+                    .airport-list.three-columns {
+                        grid-template-columns: repeat(3, 1fr);
+                    }
+
+                    /* For 30+ airports, switch to four columns */
+                    .airport-list.four-columns {
+                        grid-template-columns: repeat(4, 1fr);
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1 class="text-center">ESP Metar Map Config</h1>
+                    <form action="/update" method="POST">
+                        <div class="form-group">
+                            <label for="brightness">LED Brightness (0-255):</label>
+                            <input type="range" id="brightness" name="brightness" class="form-control-                  range" min="0" max="255" value=")rawliteral";
+        html += String(ledBrightness);
+        html += R"rawliteral(" step="1">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary btn-block">Update Settings</button>
+                    </form>
+                    <br>
+                    <button onclick="fetchWeather()" class="btn btn-secondary btn-block">Fetch Weather Data</button>
+                    
+                    <!-- Move the airport list below -->
+                    <p>Airports being monitored are:</p>
+                    <div class="airport-list">
+        )rawliteral";
+
+        // Add each airport as a list item
+        for (size_t i = 0; i < sizeof(airports) / sizeof(airports[0]); i++) {
+            html += "<div>" + airports[i] + "</div>";
+        }
+
+        // Apply CSS class based on the number of airports
+        size_t numAirports = sizeof(airports) / sizeof(airports[0]);
+        if (numAirports > 30) {
+            html += "<style>.airport-list { grid-template-columns: repeat(4, 1fr); }</style>";  // Four columns
+        } else if (numAirports >= 20) {
+            html += "<style>.airport-list { grid-template-columns: repeat(3, 1fr); }</style>";  // Three columns
+        } else if (numAirports >= 10) {
+            html += "<style>.airport-list { grid-template-columns: repeat(2, 1fr); }</style>";  // Two columns
+        }
+
+        html += R"rawliteral(
+                    </div>
+                </div>
+
+                <!-- Bootstrap JS, Popper.js, and jQuery (required for Bootstrap components) -->
+                <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+                <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+                <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+                <script>
+                    function fetchWeather() {
+                        fetch('/fetch');
+                        alert('Weather data fetch triggered!');
+                    }
+                </script>
+            </body>
+            </html>
+        )rawliteral";
+
+        request->send(200, "text/html", html);
+    });
+
+    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
+        if (request->hasParam("brightness", true)) {
+            ledBrightness = request->getParam("brightness", true)->value().toInt();
+            FastLED.setBrightness(ledBrightness);
+            FastLED.show();
+          // Save the new brightness to EEPROM
+            saveBrightness();
+          debugPrint("New Led Brightness: %d\n",ledBrightness);
+        }
+        request->redirect("/");
+    });
+
+    server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
+        fetchMetarData();
+        request->send(200, "text/plain", "Metar fetch triggered.");
+    });
+}
+
+// Wi-Fi setup
+void setupWiFi() {
+  WiFiManager wm;
+  if (!wm.autoConnect("ESP-MetarMap")) {
+    debugPrint("Failed to connect to Wi-Fi.\n");
+    delay(5000);
+    ESP.restart();
+  }
+  Serial.println("Wi-Fi connected!");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
+
+}
+
+void printMetars(){
+  for (JsonObject metar : lastMetars) {
+        const String icaoId = metar["icaoId"];
+        // Fetch and process METAR data for this airport
+        float temp = metar["temp"];
+        int wdir = metar["wdir"];
+        int wspd = metar["wspd"];
+        const char* rawOb = metar["rawOb"];
+        const char* name = metar["name"];
+        int ceiling = -1; // Initialize ceiling to invalid value
+         float visib;
+          if (metar["visib"].is<const char*>()) {
+            String visibStr = metar["visib"].as<const char*>();
+            if (visibStr == "10+") {
+              visib = 10.0; // Use 10.1 to represent "10+" as a float
+            } else {
+              visib = visibStr.toFloat(); // Convert string to float
+            }
+          } else if (metar["visib"].is<float>()) {
+            visib = metar["visib"].as<float>(); // Directly assign float values
+          } else {
+            visib = -1.0; // Default value for missing or invalid data
+          }
+      // debugPrint("\nAirport: %s\n", name ? name : "Unknown");
+      // debugPrint("  ICAO ID: %s\n", icaoId ? icaoId : "Unknown");
+      // debugPrint("  Temperature: %.1f°C\n", temp != -999 ? temp : NAN);
+      // debugPrint("  Wind Direction: %s\n", wdir != -1 ? String(wdir).c_str() : "Unknown");
+      // debugPrint("  Wind Speed: %s knots\n", wspd != -1 ? String(wspd).c_str() : "Unknown");
+      // debugPrint("  Visibility: %.1f miles\n", visib != -999 ? visib : NAN);
+      // debugPrint("  Metar Report: %s\n", rawOb ? rawOb : "Unknown");
+    delay(30000);
+  }
+}
+
+bool isTimeInRange() {
+    timeClient.update();
+    int currentHour = timeClient.getHours();
+  Serial.println(currentHour);
+    return (currentHour >= 7 && currentHour < 20);
+}
+
+void testStartupSequence() {
+  Serial.println("Starting Up...");
+  for(int i = 0;i < 50;i++){
+ //   Serial.println(i);
+    uint8_t thisHue = beatsin8(10,0,255);
+    fill_rainbow(leds, NUM_AIRPORTS,thisHue,10);
+    FastLED.show();
+    delay(100);
+    
+  }
+  fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+  FastLED.show();
+}
+
+// Setup function
+void setup() {
+  Serial.begin(115200);
+  delay(1000);
+
+  Serial.println("Setting up Wi-Fi...\n");
+  setupWiFi();
+  delay(1000);
+  loadBrightness();
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_AIRPORTS);
+//  FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
+  FastLED.setBrightness(ledBrightness);
+  FastLED.clear();
+  FastLED.show();
+  
+  serveWebPage();
+  server.begin();
+ timeClient.begin();
+  testStartupSequence();
+ if (isTimeInRange()) {
+        Serial.println("Turn ON");
+        // Add code to turn on your device
+          fetchMetarData();
+   }
+}
+
+void loop() {
+    
+  unsigned long currentMillis = millis();
+    if (currentMillis - previousMillis >= INTERVAL) {
+         previousMillis = currentMillis;
+      if (isTimeInRange()) {
+        Serial.println("Turn ON");
+        // Add code to turn on your device
+    
+       fetchMetarData();
+     
+   } else {
+       Serial.println("Turn OFF");
+      fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+      FastLED.show();
+       
+    }
+  }
+   
+    //printMetars();
+}

@@ -1,0 +1,24 @@
+C:\Users\Alex\AppData\Local\arduino\sketches\6EB21D172B5799181AB60AFC32A1A969\libraries\FastLED\third_party\espressif\led_strip\src\led_strip_rmt_encoder.c.o: \
+ c:\Users\Alex\Documents\Arduino\libraries\libraries\FastLED\src\third_party\espressif\led_strip\src\led_strip_rmt_encoder.c \
+ c:\Users\Alex\Documents\Arduino\libraries\libraries\FastLED\src\third_party\espressif\led_strip\src\enabled.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/qio_qspi/include/sdkconfig.h \
+ c:\Users\Alex\Documents\Arduino\libraries\libraries\FastLED\src/platforms/esp/esp_version.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_common/include/esp_idf_version.h \
+ c:\Users\Alex\Documents\Arduino\libraries\libraries\FastLED\src/fl/unused.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_common/include/esp_check.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_common/include/esp_err.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_common/include/esp_compiler.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/log/include/esp_log.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_rom/include/esp_rom_sys.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/soc/esp32/include/soc/reset_reasons.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/log/include/esp_log_internal.h \
+ c:\Users\Alex\Documents\Arduino\libraries\libraries\FastLED\src\third_party\espressif\led_strip\src\led_strip_rmt_encoder.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_driver_rmt/include/driver/rmt_encoder.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/hal/include/hal/rmt_types.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/soc/esp32/include/soc/clk_tree_defs.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/soc/esp32/include/soc/soc_caps.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_driver_rmt/include/driver/rmt_types.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/hal/include/hal/gpio_types.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/soc/esp32/include/soc/gpio_num.h \
+ C:\Users\Alex\AppData\Local\Arduino15\packages\esp32\tools\esp32-arduino-libs\idf-release_v5.3-489d7a2b-v1\esp32/include/esp_common/include/esp_bit_defs.h \
+ c:\Users\Alex\Documents\Arduino\libraries\libraries\FastLED\src\third_party\espressif\led_strip\src\led_strip_types.h
