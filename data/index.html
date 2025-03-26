@@ -1,68 +1,74 @@
-
 <!DOCTYPE html>
-    <html>
-        <head>
-            <title>ESP Metar Map Config</title>
-            <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-            <style>
-                body { margin: 20px; }
-                .container { max-width: 600px; }
-                .form-group { margin-bottom: 1rem; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h1 class="text-center">ESP Metar Map Config</h1>
-                <form action="/updatebrightness" method="POST">
-                    <div class="form-group">
-                        <label for="brightness">LED Brightness (0-255):</label>
-                        <input type="range" id="brightness" name="brightness" class="form-control-range" min="0" max="255" value="{{LED_BRIGHTNESS}}" step="1">
-                      </div>
-                      <button type="submit" class="btn btn-primary btn-block">Update Settings</button>
-                  </form>
-                  <br>
-                  <form action="/updatestarttime" method="POST">
-                      <div class="form-group">
-                          <label for="starttime">Start Time (Hours 0-23):</label>
-                          <input type="number" id="starttime" name="starttime" class="form-control" min="0" max="23" value="{{START_TIME}}">
-                      </div>
-                      <button type="submit" class="btn btn-primary btn-block">Update Start Time</button>
-                  </form>
-                  <br>
-                  <form action="/updateendtime" method="POST">
-                      <div class="form-group">
-                          <label for="endtime">End Time (Hours 0-23):</label>
-                          <input type="number" id="endtime" name="endtime" class="form-control" min="0" max="23" value="{{END_TIME}}">
-                      </div>
-                      <button type="submit" class="btn btn-primary btn-block">Update End Time</button>
-                  </form>
-                  <br>
-                  <button onclick="fetchWeather()" class="btn btn-secondary btn-block">Fetch Weather Data</button>
-                  
-                  <!-- Move the airport list below -->
-                  <p>Airports being monitored are:</p>
-                  <div id="airport-list" class="airport-list">
-                    <!-- AIRPORT_LIST_PLACEHOLDER -->
+<html>
+    <head>
+        <title>ESP Metar Map Config</title>
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+        <style>
+            body { margin: 20px; }
+            .container { max-width: 600px; }
+            .form-group { margin-bottom: 1rem; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 class="text-center">ESP Metar Map Config</h1>
+            <form action="/updatebrightness" method="POST">
+                <div class="form-group">
+                    <label for="brightness">LED Brightness (0-255):</label>
+                    <input type="range" id="brightness" name="brightness" class="form-control-range" min="0" max="255" value="{{LED_BRIGHTNESS}}" step="1">
                 </div>
-                  <div>
-                    <h2>Upload Firmware(Coming Soon)</h2>
-                    <form method="POST" enctype="multipart/form-data" action="">
-                      <input type="file" name="firmware" disabled/>
-                      <input type="submit" value="Upload" disabled />
-                    </form>
-                  </div>
-              </div>
+                <button type="submit" class="btn btn-primary btn-block">Update Settings</button>
+            </form>
+            <br>
 
-              <!-- Bootstrap JS, Popper.js, and jQuery (required for Bootstrap components) -->
-              <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-              <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
-              <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-              <script>
-                  function fetchWeather() {
-                      fetch('/fetch');
-                      alert('Weather data fetch triggered!');
-                  }
-              </script>
-          </body>
-          </html>
-      
+            <!-- Row for Start Time and End Time -->
+            <div class="row">
+                <div class="col-md-6">
+                    <form action="/updatestarttime" method="POST">
+                        <div class="form-group">
+                            <label for="starttime">Start Time (Hours 0-23):</label>
+                            <input type="number" id="starttime" name="starttime" class="form-control" min="0" max="23" value="{{START_TIME}}">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Update Start Time</button>
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <form action="/updateendtime" method="POST">
+                        <div class="form-group">
+                            <label for="endtime">End Time (Hours 0-23):</label>
+                            <input type="number" id="endtime" name="endtime" class="form-control" min="0" max="23" value="{{END_TIME}}">
+                        </div>
+                        <button type="submit" class="btn btn-primary btn-block">Update End Time</button>
+                    </form>
+                </div>
+            </div>
+            <br>
+
+            <button onclick="fetchWeather()" class="btn btn-secondary btn-block">Fetch Weather Data</button>
+            
+            <!-- Move the airport list below -->
+            <p>Airports being monitored are:</p>
+            <div id="airport-list" class="airport-list">
+                <!-- AIRPORT_LIST_PLACEHOLDER -->
+            </div>
+            <div>
+                <h2>Upload Firmware (Coming Soon)</h2>
+                <form method="POST" enctype="multipart/form-data" action="">
+                    <input type="file" name="firmware" disabled/>
+                    <input type="submit" value="Upload" disabled />
+                </form>
+            </div>
+        </div>
+
+        <!-- Bootstrap JS, Popper.js, and jQuery (required for Bootstrap components) -->
+        <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+        <script>
+            function fetchWeather() {
+                fetch('/fetch');
+                alert('Weather data fetch triggered!');
+            }
+        </script>
+    </body>
+</html>

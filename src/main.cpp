@@ -18,7 +18,7 @@
 const char* airports[] PROGMEM = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
 
 // Debug mode
-bool debug = true;
+bool debug = false;
 
 //Get Time
 WiFiUDP ntpUDP;
@@ -43,16 +43,16 @@ CRGB lifr_color(255,120,180);
 // Timing interval (15 minutes)
 constexpr unsigned long INTERVAL = 15 * 60 * 1000; // Milliseconds
           
-//brads map
+//map 1
 //String airports[] = {"KDUG", "KOLS", "KTUS", "KPHX", "KNYL", "KGXF", "KPAN", "KSOW", "KDVT", "KINW", "KPGA", "KFLG", "KIGM", "KGCN", "KPRC", "KCMR", "KSEZ"};
 
-//BRADS FRIENDS MAP 
+// MAP 2
 //String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
 
 
 //DONT CHANGE ANYTHING BELOW HERE
 // Default brightness
-int ledBrightness = 80; 
+int ledBrightness = 75; 
 
 struct Preference {
   const char* name;
@@ -60,7 +60,7 @@ struct Preference {
 };
 
 Preference settings[] = {
-{"led_brightness",125},
+{"led_brightness",75},
 {"start_time",7},
 {"end_time",20}
 };
@@ -353,7 +353,7 @@ void serveWebPage() {
 
     // Replace the placeholder with the dynamic airport list
     html.replace("<!-- AIRPORT_LIST_PLACEHOLDER -->", airportListHtml);
-    html.replace("{{LED_BRIGHTNESS}}",String(settings[0].value));
+    html.replace("{{LED_BRIGHTNESS}}",String(ledBrightness));
     html.replace("{{START_TIME}}",String(settings[1].value));
     html.replace("{{END_TIME}}",String(settings[2].value));
 
