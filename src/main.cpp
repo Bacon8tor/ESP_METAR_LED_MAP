@@ -7,11 +7,18 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <Update.h>
+#include <pgmspace.h>
+
 //Pin for LEDs
 #define DATA_PIN 25
-// Debug mode
-bool debug = true;
 
+//Airports List
+const char* airports[] PROGMEM = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
+
+// Debug mode
+bool debug = false;
+
+//Get Time
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", -25200, 60000); //set for MST -7 
 
@@ -38,7 +45,8 @@ constexpr unsigned long INTERVAL = 15 * 60 * 1000; // Milliseconds
 //String airports[] = {"KDUG", "KOLS", "KTUS", "KPHX", "KNYL", "KGXF", "KPAN", "KSOW", "KDVT", "KINW", "KPGA", "KFLG", "KIGM", "KGCN", "KPRC", "KCMR", "KSEZ"};
 
 //BRADS FRIENDS MAP 
-String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
+//String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
+
 
 //DONT CHANGE ANYTHING BELOW HERE
 // Default brightness
@@ -61,7 +69,7 @@ unsigned long previousMillis = 0;
 const int NUM_AIRPORTS = sizeof(airports) / sizeof(airports[0]);
 CRGB leds[NUM_AIRPORTS];
 
-DynamicJsonDocument doc(4092); // Adjust size as needed
+DynamicJsonDocument doc(512); // Adjust size as needed
 JsonArray lastMetars;
 
 // Web server setup
@@ -118,9 +126,9 @@ void setSettingValue(const char* key, int newValue) {
 
 // Function to determine flight category
 String determineFlightCategory(float visibility, int ceiling,String type) {
-  if(type == "FEW" || "CLR" || "SCT"){
+  if (type == "FEW" || type == "CLR" || type == "SCT") {
     ceiling = 10000;
-  }
+ }
   if (visibility > 5.0 && ceiling > 3000) {
     return "VFR"; // Visual Flight Rules
   } else if (visibility >= 3.0 && visibility <= 5.0 || (ceiling >= 1000 && ceiling <= 3000)) {
@@ -174,7 +182,7 @@ void fetchMetarData() {
     }
      JsonArray metars = doc.as<JsonArray>();
     for (int i = 0; i < NUM_AIRPORTS; i++) {
-      const char* airportIcao = airports[i].c_str();
+      const char* airportIcao = (const char*)pgm_read_ptr(&(airports[i]));
 
       // Search through the METAR data for the matching ICAO code
       bool found = false;
@@ -355,9 +363,13 @@ void serveWebPage() {
       )rawliteral";
 
       // Add each airport as a list item
-      for (size_t i = 0; i < sizeof(airports) / sizeof(airports[0]); i++) {
-          html += "<div>" + airports[i] + "</div>";
-      }
+  for (size_t i = 0; i < sizeof(airports) / sizeof(airports[0]); i++) {
+    // Correctly read the string pointer from PROGMEM using pgm_read_ptr
+    const char* airportIcao = (const char*)pgm_read_ptr(&(airports[i]));
+
+    // Concatenate the airport to the HTML string
+    html += "<div>" + String(airportIcao) + "</div>";
+  }
 
       // Apply CSS class based on the number of airports
       size_t numAirports = sizeof(airports) / sizeof(airports[0]);
