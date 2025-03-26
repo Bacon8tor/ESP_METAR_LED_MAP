@@ -10,7 +10,7 @@
 //Pin for LEDs
 #define DATA_PIN 25
 // Debug mode
-bool debug = false;
+bool debug = true;
 
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", -25200, 60000); //set for MST -7 
@@ -45,12 +45,14 @@ String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA
 int ledBrightness = 80; 
 
 struct Preference {
-  const char* key;
+  const char* name;
   int value;
 };
 
 Preference settings[] = {
-{"led_brightness",125}
+{"led_brightness",125},
+{"start_time",7},
+{"end_time",20}
 };
 
 Preferences preferences;
@@ -75,21 +77,44 @@ void debugPrint(const char* format, ...) {
   }
 }
 
-//Save and load brightness 
-void saveBrightness() {
-    preferences.begin("led_config", false);  // Open the "led_config" namespace for writing
-    preferences.putInt(settings[0].key, ledBrightness);  // Store the ledBrightness value
-    preferences.end();  // Close the preferences
-  debugPrint("Led Brightness saved to %d\n",ledBrightness);
+
+// Function to get the value of a setting by name (loads from Preferences)
+int getSettingValue(const char* key) {
+  preferences.begin("settings", true);  // Open Preferences in read-only mode
+  int value = preferences.getInt(key, -1);  // Get value or return -1 if not found
+  preferences.end();
+
+  if (value == -1) {  // If not found, use the default from settings array
+      for (int i = 0; i < sizeof(settings) / sizeof(settings[0]); i++) {
+          if (strcmp(settings[i].name, key) == 0) {
+              value = settings[i].value;
+              break;
+          }
+      }
+      debugPrint("getSettingValue: '%s' not found in Preferences, using default %d\n", key, value);
+  } else {
+      debugPrint("getSettingValue: Loaded '%s' with value %d from Preferences\n", key, value);
+  }
+
+  return value;
 }
 
-void loadBrightness() {
-  
-    preferences.begin("led_config", true);  // Open the "led_config" namespace for reading
-    ledBrightness = preferences.getInt(settings[0].key, 125);  // Read the saved brightness value or default to 125
-    preferences.end();  // Close the preferences
-  debugPrint("Led Brightness loaded to %d\n",ledBrightness);
-  
+// Function to set the value of a setting by name (saves to Preferences)
+void setSettingValue(const char* key, int newValue) {
+  for (int i = 0; i < sizeof(settings) / sizeof(settings[0]); i++) {
+      if (strcmp(settings[i].name, key) == 0) {
+          settings[i].value = newValue;  // Update the in-memory setting
+          
+          // Save to Preferences
+          preferences.begin("settings", false);  // Open Preferences in write mode
+          preferences.putInt(key, newValue);
+          preferences.end();
+
+          debugPrint("setSettingValue: Saved '%s' with new value %d to Preferences\n", key, newValue);
+          return;
+      }
+  }
+  debugPrint("setSettingValue: Setting '%s' not found!\n", key);
 }
 
 // Function to determine flight category
@@ -250,115 +275,94 @@ void fetchMetarData() {
 
 // Serve the HTML webpage
 void serveWebPage() {
-     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-        String html = R"rawliteral(
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>ESP Metar Map Config</title>
-                <!-- Bootstrap CSS -->
-                <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-                <style>
-                    body { margin: 20px; }
-                    .container { max-width: 600px; }
-                    .form-group { margin-bottom: 1rem; }
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+      String html = R"rawliteral(
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>ESP Metar Map Config</title>
+              <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+              <style>
+                  body { margin: 20px; }
+                  .container { max-width: 600px; }
+                  .form-group { margin-bottom: 1rem; }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1 class="text-center">ESP Metar Map Config</h1>
+                  <form action="/updatebrightness" method="POST">
+                      <div class="form-group">
+                          <label for="brightness">LED Brightness (0-255):</label>
+                          <input type="range" id="brightness" name="brightness" class="form-control-range" min="0" max="255" value=")rawliteral";
+      html += String(ledBrightness);
+      html += R"rawliteral(" step="1">
+                      </div>
+                      <button type="submit" class="btn btn-primary btn-block">Update Settings</button>
+                  </form>
+                  <br>
+                  <form action="/updatestarttime" method="POST">
+                      <div class="form-group">
+                          <label for="starttime">Start Time (Hours 0-23):</label>
+                          <input type="number" id="starttime" name="starttime" class="form-control" min="0" max="23" value=")rawliteral";
+      html += String(settings[1].value);  // Assuming `startTime` is a variable that holds the current start time
+      html += R"rawliteral(">
+                      </div>
+                      <button type="submit" class="btn btn-primary btn-block">Update Start Time</button>
+                  </form>
+                  <br>
+                  <form action="/updateendtime" method="POST">
+                      <div class="form-group">
+                          <label for="endtime">End Time (Hours 0-23):</label>
+                          <input type="number" id="endtime" name="endtime" class="form-control" min="0" max="23" value=")rawliteral";
+      html += String(settings[2].value);  // Assuming `endTime` is a variable that holds the current end time
+      html += R"rawliteral(">
+                      </div>
+                      <button type="submit" class="btn btn-primary btn-block">Update End Time</button>
+                  </form>
+                  <br>
+                  <button onclick="fetchWeather()" class="btn btn-secondary btn-block">Fetch Weather Data</button>
+              </div>
+          </body>
+          </html>
+      )rawliteral";
 
-                    /* Default to one column */
-                    .airport-list {
-                        display: grid;
-                        grid-template-columns: repeat(1, 1fr); /* 1 column by default */
-                        gap: 10px;
-                    }
+      request->send(200, "text/html", html);
+  });
 
-                    /* For 10-19 airports, switch to two columns */
-                    .airport-list.two-columns {
-                        grid-template-columns: repeat(2, 1fr);
-                    }
+  server.on("/updatebrightness", HTTP_POST, [](AsyncWebServerRequest *request) {
+      if (request->hasParam("brightness", true)) {
+          ledBrightness = request->getParam("brightness", true)->value().toInt();
+          FastLED.setBrightness(ledBrightness);
+          FastLED.show();
+          setSettingValue("led_brightness", ledBrightness);
+          debugPrint("New Led Brightness: %d\n", ledBrightness);
+      }
+      request->redirect("/");
+  });
 
-                    /* For 20-29 airports, switch to three columns */
-                    .airport-list.three-columns {
-                        grid-template-columns: repeat(3, 1fr);
-                    }
+  server.on("/updatestarttime", HTTP_POST, [](AsyncWebServerRequest *request) {
+      if (request->hasParam("starttime", true)) {
+          int startTime = request->getParam("starttime", true)->value().toInt();
+          setSettingValue("start_time", startTime);
+          debugPrint("New Start Time: %d\n", startTime);
+      }
+      request->redirect("/");
+  });
 
-                    /* For 30+ airports, switch to four columns */
-                    .airport-list.four-columns {
-                        grid-template-columns: repeat(4, 1fr);
-                    }
-                </style>
-            </head>
-            <body>
-                <div class="container">
-                    <h1 class="text-center">ESP Metar Map Config</h1>
-                    <form action="/update" method="POST">
-                        <div class="form-group">
-                            <label for="brightness">LED Brightness (0-255):</label>
-                            <input type="range" id="brightness" name="brightness" class="form-control-                  range" min="0" max="255" value=")rawliteral";
-        html += String(ledBrightness);
-        html += R"rawliteral(" step="1">
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary btn-block">Update Settings</button>
-                    </form>
-                    <br>
-                    <button onclick="fetchWeather()" class="btn btn-secondary btn-block">Fetch Weather Data</button>
-                    
-                    <!-- Move the airport list below -->
-                    <p>Airports being monitored are:</p>
-                    <div class="airport-list">
-        )rawliteral";
+  server.on("/updateendtime", HTTP_POST, [](AsyncWebServerRequest *request) {
+      if (request->hasParam("endtime", true)) {
+          int endTime = request->getParam("endtime", true)->value().toInt();
+          setSettingValue("end_time", endTime);
+          debugPrint("New End Time: %d\n", endTime);
+      }
+      request->redirect("/");
+  });
 
-        // Add each airport as a list item
-        for (size_t i = 0; i < sizeof(airports) / sizeof(airports[0]); i++) {
-            html += "<div>" + airports[i] + "</div>";
-        }
-
-        // Apply CSS class based on the number of airports
-        size_t numAirports = sizeof(airports) / sizeof(airports[0]);
-        if (numAirports > 30) {
-            html += "<style>.airport-list { grid-template-columns: repeat(4, 1fr); }</style>";  // Four columns
-        } else if (numAirports >= 20) {
-            html += "<style>.airport-list { grid-template-columns: repeat(3, 1fr); }</style>";  // Three columns
-        } else if (numAirports >= 10) {
-            html += "<style>.airport-list { grid-template-columns: repeat(2, 1fr); }</style>";  // Two columns
-        }
-
-        html += R"rawliteral(
-                    </div>
-                </div>
-
-                <!-- Bootstrap JS, Popper.js, and jQuery (required for Bootstrap components) -->
-                <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-                <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
-                <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-                <script>
-                    function fetchWeather() {
-                        fetch('/fetch');
-                        alert('Weather data fetch triggered!');
-                    }
-                </script>
-            </body>
-            </html>
-        )rawliteral";
-
-        request->send(200, "text/html", html);
-    });
-
-    server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request) {
-        if (request->hasParam("brightness", true)) {
-            ledBrightness = request->getParam("brightness", true)->value().toInt();
-            FastLED.setBrightness(ledBrightness);
-            FastLED.show();
-          // Save the new brightness to EEPROM
-            saveBrightness();
-          debugPrint("New Led Brightness: %d\n",ledBrightness);
-        }
-        request->redirect("/");
-    });
-
-    server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
-        fetchMetarData();
-        request->send(200, "text/plain", "Metar fetch triggered.");
-    });
+  server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
+      fetchMetarData();
+      request->send(200, "text/plain", "Metar fetch triggered.");
+  });
 }
 
 // Wi-Fi setup
@@ -412,21 +416,29 @@ void printMetars(){
 bool isTimeInRange() {
     timeClient.update();
     int currentHour = timeClient.getHours();
-  Serial.println(currentHour);
-    return (currentHour >= 7 && currentHour < 20);
+    Serial.println(currentHour);
+    return (currentHour >= settings[1].value && currentHour < settings[2].value);
 }
 
 void testStartupSequence() {
   Serial.println("Starting Up...");
-  for(int i = 0;i < 50;i++){
- //   Serial.println(i);
-    uint8_t thisHue = beatsin8(10,0,255);
-    fill_rainbow(leds, NUM_AIRPORTS,thisHue,10);
-    FastLED.show();
-    delay(100);
-    
+
+  for (int i = 1; i <= NUM_AIRPORTS; i++) { // Start with 1 LED, end with NUM_AIRPORTS LEDs
+      uint8_t thisHue = beatsin8(10, 0, 255); // Generate a changing hue
+      fill_rainbow(leds, i, thisHue, 10); // Gradually increase the number of LEDs lit
+      FastLED.show();
+      delay(200);
   }
+ // Keep the animation running with all LEDs on
+ for (int j = 0; j < 30; j++) { // Run animation for a set duration
+  uint8_t thisHue = beatsin8(10, 0, 255);
+  fill_rainbow(leds, NUM_AIRPORTS, thisHue, 10);
+  FastLED.show();
+  delay(100);
+}
+  // Turn off all LEDs after the sequence
   fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+
   FastLED.show();
 }
 
@@ -438,7 +450,10 @@ void setup() {
   Serial.println("Setting up Wi-Fi...\n");
   setupWiFi();
   delay(1000);
-  loadBrightness();
+  //loadBrightness();
+  ledBrightness = getSettingValue("led_brightness");
+  settings[1].value = getSettingValue("start_time");
+  settings[2].value = getSettingValue("end_time");
   FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_AIRPORTS);
 //  FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
   FastLED.setBrightness(ledBrightness);
