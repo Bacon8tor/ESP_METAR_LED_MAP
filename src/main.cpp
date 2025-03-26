@@ -8,6 +8,8 @@
 #include <AsyncTCP.h>
 #include <Update.h>
 #include <pgmspace.h>
+#include <FS.h>
+#include <SPIFFS.h>
 
 //Pin for LEDs
 #define DATA_PIN 25
@@ -16,7 +18,7 @@
 const char* airports[] PROGMEM = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
 
 // Debug mode
-bool debug = false;
+bool debug = true;
 
 //Get Time
 WiFiUDP ntpUDP;
@@ -307,104 +309,54 @@ void handleFileUpload(AsyncWebServerRequest *request, const String& filename, si
   }
 }
 
+// Function to load HTML from SPIFFS
+String loadHTML(const char* filename) {
+  File file = SPIFFS.open(filename, "r");
+  if (!file) {
+    Serial.println("Failed to open file for reading");
+    return "";
+  }
+  
+  String content = "";
+  while (file.available()) {
+    content += (char)file.read();
+  }
+  file.close();
+  
+  return content;
+}
+
 // Serve the HTML webpage
 void serveWebPage() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-      String html = R"rawliteral(
-          <!DOCTYPE html>
-          <html>
-          <head>
-              <title>ESP Metar Map Config</title>
-              <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-              <style>
-                  body { margin: 20px; }
-                  .container { max-width: 600px; }
-                  .form-group { margin-bottom: 1rem; }
-              </style>
-          </head>
-          <body>
-              <div class="container">
-                  <h1 class="text-center">ESP Metar Map Config</h1>
-                  <form action="/updatebrightness" method="POST">
-                      <div class="form-group">
-                          <label for="brightness">LED Brightness (0-255):</label>
-                          <input type="range" id="brightness" name="brightness" class="form-control-range" min="0" max="255" value=")rawliteral";
-      html += String(ledBrightness);
-      html += R"rawliteral(" step="1">
-                      </div>
-                      <button type="submit" class="btn btn-primary btn-block">Update Settings</button>
-                  </form>
-                  <br>
-                  <form action="/updatestarttime" method="POST">
-                      <div class="form-group">
-                          <label for="starttime">Start Time (Hours 0-23):</label>
-                          <input type="number" id="starttime" name="starttime" class="form-control" min="0" max="23" value=")rawliteral";
-      html += String(settings[1].value);  // Assuming `startTime` is a variable that holds the current start time
-      html += R"rawliteral(">
-                      </div>
-                      <button type="submit" class="btn btn-primary btn-block">Update Start Time</button>
-                  </form>
-                  <br>
-                  <form action="/updateendtime" method="POST">
-                      <div class="form-group">
-                          <label for="endtime">End Time (Hours 0-23):</label>
-                          <input type="number" id="endtime" name="endtime" class="form-control" min="0" max="23" value=")rawliteral";
-      html += String(settings[2].value);  // Assuming `endTime` is a variable that holds the current end time
-      html += R"rawliteral(">
-                      </div>
-                      <button type="submit" class="btn btn-primary btn-block">Update End Time</button>
-                  </form>
-                  <br>
-                  <button onclick="fetchWeather()" class="btn btn-secondary btn-block">Fetch Weather Data</button>
-                  
-                  <!-- Move the airport list below -->
-                  <p>Airports being monitored are:</p>
-                  <div class="airport-list">
-      )rawliteral";
+      String html = loadHTML("/index.html");
 
-      // Add each airport as a list item
-  for (size_t i = 0; i < sizeof(airports) / sizeof(airports[0]); i++) {
-    // Correctly read the string pointer from PROGMEM using pgm_read_ptr
-    const char* airportIcao = (const char*)pgm_read_ptr(&(airports[i]));
+       // Add each airport as a list item
+    String airportListHtml = "";
+    for (size_t i = 0; i < sizeof(airports) / sizeof(airports[0]); i++) {
+      // Correctly read the string pointer from PROGMEM using pgm_read_ptr
+      const char* airportIcao = (const char*)pgm_read_ptr(&(airports[i]));
+      
+      // Concatenate the airport to the HTML string
+      airportListHtml += "<div>" + String(airportIcao) + "</div>";
+    }
 
-    // Concatenate the airport to the HTML string
-    html += "<div>" + String(airportIcao) + "</div>";
-  }
+    // Apply CSS class based on the number of airports
+    size_t numAirports = sizeof(airports) / sizeof(airports[0]);
+    if (numAirports > 30) {
+        html += "<style>.airport-list { grid-template-columns: repeat(4, 1fr); }</style>";  // Four columns
+    } else if (numAirports >= 20) {
+        html += "<style>.airport-list { grid-template-columns: repeat(3, 1fr); }</style>";  // Three columns
+    } else if (numAirports >= 10) {
+        html += "<style>.airport-list { grid-template-columns: repeat(2, 1fr); }</style>";  // Two columns
+    }
 
-      // Apply CSS class based on the number of airports
-      size_t numAirports = sizeof(airports) / sizeof(airports[0]);
-      if (numAirports > 30) {
-          html += "<style>.airport-list { grid-template-columns: repeat(4, 1fr); }</style>";  // Four columns
-      } else if (numAirports >= 20) {
-          html += "<style>.airport-list { grid-template-columns: repeat(3, 1fr); }</style>";  // Three columns
-      } else if (numAirports >= 10) {
-          html += "<style>.airport-list { grid-template-columns: repeat(2, 1fr); }</style>";  // Two columns
-      }
+    // Replace the placeholder with the dynamic airport list
+    html.replace("<!-- AIRPORT_LIST_PLACEHOLDER -->", airportListHtml);
+    html.replace("{{LED_BRIGHTNESS}}",String(settings[0].value));
+    html.replace("{{START_TIME}}",String(settings[1].value));
+    html.replace("{{END_TIME}}",String(settings[2].value));
 
-      html += R"rawliteral(
-                  </div>
-                  <div>
-                    <h2>Upload Firmware(Coming Soon)</h2>
-                    <form method="POST" enctype="multipart/form-data" action="/update">
-                      <input type="file" name="firmware" disabled/>
-                      <input type="submit" value="Upload" disabled />
-                    </form>
-                  </div>
-              </div>
-
-              <!-- Bootstrap JS, Popper.js, and jQuery (required for Bootstrap components) -->
-              <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
-              <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.2/dist/umd/popper.min.js"></script>
-              <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-              <script>
-                  function fetchWeather() {
-                      fetch('/fetch');
-                      alert('Weather data fetch triggered!');
-                  }
-              </script>
-          </body>
-          </html>
-      )rawliteral";
     request->send(200, "text/html", html);
 });
 
@@ -443,14 +395,14 @@ server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
 });
 
 // Corrected file upload route with separated POST handler
-server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
-  if (Update.hasError()) {
-      request->send(200, "text/plain", "Update Failed");
-  } else {
-      request->send(200, "text/plain", "Update Success, restarting...");
-      ESP.restart();
-  }
-}, handleFileUpload);
+// server.on("/update", HTTP_POST, [](AsyncWebServerRequest *request){
+//   if (Update.hasError()) {
+//       request->send(200, "text/plain", "Update Failed");
+//   } else {
+//       request->send(200, "text/plain", "Update Success, restarting...");
+//       ESP.restart();
+//   }
+// }, handleFileUpload);
 
 }
 
@@ -549,6 +501,12 @@ void setup() {
   FastLED.clear();
   FastLED.show();
   
+  //SPIFFS
+  if (!SPIFFS.begin()) {
+    Serial.println("SPIFFS Mount Failed");
+    return;
+  }
+
   serveWebPage();
   server.begin();
  timeClient.begin();
