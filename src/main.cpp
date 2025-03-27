@@ -10,6 +10,7 @@
 #include <pgmspace.h>
 #include <FS.h>
 #include <SPIFFS.h>
+#include <ESPmDNS.h>
 
 //Pin for LEDs
 #define DATA_PIN 25
@@ -26,7 +27,7 @@ const char* airports[] PROGMEM = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT",
                                   "KPIE", "KTPA", "KBKV", "KZPH", "KLAL"};
 
 // Debug mode
-bool debug = true;
+bool debug = false;
 
 //Get Time
 WiFiUDP ntpUDP;
@@ -83,7 +84,7 @@ constexpr unsigned long INTERVAL = UPADTE_TIME * 60 * 1000; // Milliseconds
 
 
 //DONT CHANGE ANYTHING BELOW HERE======================================================================================//
-// Default brightness
+ 
 int ledBrightness = 75; 
 
 struct Preference {
@@ -125,7 +126,7 @@ void debugPrint(const char* format, ...) {
 bool isTimeInRange() {
     timeClient.update();
     int currentHour = timeClient.getHours();
-    Serial.println(currentHour);
+    //Serial.println(currentHour);
     return (currentHour >= settings[1].value && currentHour < settings[2].value);
 }
 
@@ -509,6 +510,8 @@ void handleFileUpload(AsyncWebServerRequest *request, const String& filename, si
 
  // Wi-Fi setup
 void setupWiFi() {
+  String hostname = "esp_metar_map";
+  
   WiFiManager wm;
   if (!wm.autoConnect("ESP-MetarMap")) {
     debugPrint("Failed to connect to Wi-Fi.\n");
@@ -518,6 +521,10 @@ void setupWiFi() {
   Serial.println("Wi-Fi connected!");
   Serial.print("IP Address: ");
   Serial.println(WiFi.localIP());
+  if(!MDNS.begin(hostname)) {
+    Serial.println("Error Starting mDNS");
+    return;
+  }
 
 }
 
