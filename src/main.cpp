@@ -31,7 +31,7 @@ bool debug = true;
 //Get Time
 WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "pool.ntp.org", -25200, 60000); //set for MST -7 
-
+//Use Chart Below to Set your Correct TimeZone
 // Time Zone	Offset (Hours)	Offset (Seconds)
 // UTC	0	0
 // Eastern (EST)	-5	-18000
@@ -73,7 +73,7 @@ CRGB lifr_color(LIFR.g, LIFR.r, LIFR.b);
 
 
 // Timing interval (15 minutes)
-constexpr unsigned long INTERVAL = 15 * 60 * 1000; // Milliseconds
+constexpr unsigned long INTERVAL = UPADTE_TIME * 60 * 1000; // Milliseconds
           
 //map 1
 //String airports[] = {"KDUG", "KOLS", "KTUS", "KPHX", "KNYL", "KGXF", "KPAN", "KSOW", "KDVT", "KINW", "KPGA", "KFLG", "KIGM", "KGCN", "KPRC", "KCMR", "KSEZ"};
@@ -201,7 +201,6 @@ void setSettingValue(const char* key, int newValue) {
 
   return "N/A"; // Catch-all for undetermined cases
 }
- 
 
 //Get METAR Data and Set LED Colors
 void fetchMetarData() {
@@ -345,7 +344,6 @@ void checkMetars(){
 }
 
 }
-
 
 void printMetars(){
   for (JsonObject metar : lastMetars) {
@@ -546,8 +544,8 @@ void testStartupSequence() {
   FastLED.show();
 }
 
-
 //========================================================Setup Function====================================================================//
+
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -586,8 +584,6 @@ void setup() {
           fetchMetarData();
    }
 }
-
-
 
 void loop() {
     
