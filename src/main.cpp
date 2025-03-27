@@ -15,10 +15,12 @@
 #define DATA_PIN 25
 
 //Airports List
-const char* airports[] PROGMEM = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
+const char* airports[] PROGMEM = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", 
+                                  "KSDL", "KFFZ", "KIWA", "KSRQ", "KSPG",
+                                  "KPIE", "KTPA", "KBKV", "KZPH", "KLAL"};
 
 // Debug mode
-bool debug = false;
+bool debug = true;
 
 //Get Time
 WiFiUDP ntpUDP;
@@ -35,10 +37,16 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", -25200, 60000); //set for MST -7
 // UTC+3	+3	10800
 
 //Condition Colors Green , red , blue 
-CRGB vfr_color(255,0,0);
+// CRGB vfr_color(255,0,0);
+// CRGB mvfr_color(0,0,255);
+// CRGB ifr_color(0,255,0);
+// CRGB lifr_color(255,120,180);
+
+//Condition Colors red , green , blue 
+CRGB vfr_color(0,255,0);
 CRGB mvfr_color(0,0,255);
-CRGB ifr_color(0,255,0);
-CRGB lifr_color(255,120,180);
+CRGB ifr_color(255,0,0);
+CRGB lifr_color(120,255,180);
 
 // Timing interval (15 minutes)
 constexpr unsigned long INTERVAL = 15 * 60 * 1000; // Milliseconds
@@ -309,6 +317,30 @@ void handleFileUpload(AsyncWebServerRequest *request, const String& filename, si
   }
 }
 
+bool isTimeInRange() {
+    timeClient.update();
+    int currentHour = timeClient.getHours();
+    Serial.println(currentHour);
+    return (currentHour >= settings[1].value && currentHour < settings[2].value);
+}
+
+
+void checkMetars(){
+
+        if (isTimeInRange()) {
+          Serial.println("Turn ON");
+          // Add code to turn on your device
+      
+        fetchMetarData();
+      
+    } else {
+        Serial.println("Turn OFF");
+        fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+        FastLED.show();
+        
+      }
+    
+}
 // Function to load HTML from SPIFFS
 String loadHTML(const char* filename) {
   File file = SPIFFS.open(filename, "r");
@@ -390,7 +422,7 @@ server.on("/updateendtime", HTTP_POST, [](AsyncWebServerRequest *request) {
 });
 
 server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
-    fetchMetarData();
+    checkMetars();
     request->send(200, "text/plain", "Metar fetch triggered.");
 });
 
@@ -454,12 +486,6 @@ void printMetars(){
   }
 }
 
-bool isTimeInRange() {
-    timeClient.update();
-    int currentHour = timeClient.getHours();
-    Serial.println(currentHour);
-    return (currentHour >= settings[1].value && currentHour < settings[2].value);
-}
 
 void testStartupSequence() {
   Serial.println("Starting Up...");
@@ -495,8 +521,8 @@ void setup() {
   ledBrightness = getSettingValue("led_brightness");
   settings[1].value = getSettingValue("start_time");
   settings[2].value = getSettingValue("end_time");
-  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_AIRPORTS);
-//  FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
+  //FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_AIRPORTS);
+  FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
   FastLED.setBrightness(ledBrightness);
   FastLED.clear();
   FastLED.show();
@@ -509,7 +535,7 @@ void setup() {
 
   serveWebPage();
   server.begin();
- timeClient.begin();
+  timeClient.begin();
   testStartupSequence();
  if (isTimeInRange()) {
         Serial.println("Turn ON");
@@ -518,24 +544,24 @@ void setup() {
    }
 }
 
+
+
 void loop() {
     
-  unsigned long currentMillis = millis();
-    if (currentMillis - previousMillis >= INTERVAL) {
-         previousMillis = currentMillis;
-      if (isTimeInRange()) {
-        Serial.println("Turn ON");
-        // Add code to turn on your device
-    
-       fetchMetarData();
-     
-   } else {
-       Serial.println("Turn OFF");
-      fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
-      FastLED.show();
-       
+ unsigned long currentMillis = millis();
+      if (currentMillis - previousMillis >= INTERVAL) {
+          previousMillis = currentMillis;
+        if (isTimeInRange()) {
+          Serial.println("Turn ON");
+          // Add code to turn on your device
+      
+        fetchMetarData();
+      
+    } else {
+        Serial.println("Turn OFF");
+        fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+        FastLED.show();
+        
+      }
     }
-  }
-   
-    //printMetars();
 }
