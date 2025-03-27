@@ -14,6 +14,12 @@
 //Pin for LEDs
 #define DATA_PIN 25
 
+//How many minutes map updates
+#define UPADTE_TIME 15
+
+//DEFINE LED TYPE - WS2812B is default
+//#define WS2811
+
 //Airports List
 const char* airports[] PROGMEM = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", 
                                   "KSDL", "KFFZ", "KIWA", "KSRQ", "KSPG",
@@ -36,17 +42,35 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", -25200, 60000); //set for MST -7
 // UTC+2	+2	7200
 // UTC+3	+3	10800
 
-//Condition Colors Green , red , blue 
-// CRGB vfr_color(255,0,0);
-// CRGB mvfr_color(0,0,255);
-// CRGB ifr_color(0,255,0);
-// CRGB lifr_color(255,120,180);
 
-//Condition Colors red , green , blue 
-CRGB vfr_color(0,255,0);
-CRGB mvfr_color(0,0,255);
-CRGB ifr_color(255,0,0);
-CRGB lifr_color(120,255,180);
+// Struct to hold RGB values
+struct RGBColor {
+  uint8_t r;
+  uint8_t g;
+  uint8_t b;
+};
+
+const RGBColor VFR = {0,255,0};
+const RGBColor MVFR = {0,0,255};
+const RGBColor IFR = {255,0,0};
+const RGBColor LIFR = {120,255,180};
+
+#ifdef WS2811
+//RGB
+CRGB vfr_color(VFR.r, VFR.g, VFR.b);
+CRGB mvfr_color(MVFR.r, MVFR.g, MVFR.b);
+CRGB ifr_color(IFR.r, IFR.g, IFR.b);
+CRGB lifr_color(LIFR.r, LIFR.g, LIFR.b);
+
+#else
+//GRB for WS2812B
+CRGB vfr_color(VFR.g, VFR.r, VFR.b);
+CRGB mvfr_color(MVFR.g, MVFR.r, MVFR.b);
+CRGB ifr_color(IFR.g, IFR.r, IFR.b);
+CRGB lifr_color(LIFR.g, LIFR.r, LIFR.b);
+
+#endif
+
 
 // Timing interval (15 minutes)
 constexpr unsigned long INTERVAL = 15 * 60 * 1000; // Milliseconds
@@ -58,7 +82,7 @@ constexpr unsigned long INTERVAL = 15 * 60 * 1000; // Milliseconds
 //String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
 
 
-//DONT CHANGE ANYTHING BELOW HERE
+//DONT CHANGE ANYTHING BELOW HERE======================================================================================//
 // Default brightness
 int ledBrightness = 75; 
 
@@ -79,12 +103,14 @@ unsigned long previousMillis = 0;
 const int NUM_AIRPORTS = sizeof(airports) / sizeof(airports[0]);
 CRGB leds[NUM_AIRPORTS];
 
+//Need to update to JSON Document 
 DynamicJsonDocument doc(512); // Adjust size as needed
 JsonArray lastMetars;
 
 // Web server setup
 AsyncWebServer server(80);
 
+//===================================================== Helper Functions ===================================================================//
 // Debug print helper
 void debugPrint(const char* format, ...) {
   if (debug) {
@@ -95,7 +121,17 @@ void debugPrint(const char* format, ...) {
   }
 }
 
-// Function to get the value of a setting by name (loads from Preferences)
+//Checks if within the Scheduled Time Window
+bool isTimeInRange() {
+    timeClient.update();
+    int currentHour = timeClient.getHours();
+    Serial.println(currentHour);
+    return (currentHour >= settings[1].value && currentHour < settings[2].value);
+}
+
+//===================================================== Get/Set Preferences ================================================================//
+
+ // Function to get the value of a setting by name (loads from Preferences)
 int getSettingValue(const char* key) {
   preferences.begin("settings", true);  // Open Preferences in read-only mode
   int value = preferences.getInt(key, -1);  // Get value or return -1 if not found
@@ -116,7 +152,7 @@ int getSettingValue(const char* key) {
   return value;
 }
 
-// Function to set the value of a setting by name (saves to Preferences)
+ // Function to set the value of a setting by name (saves to Preferences)
 void setSettingValue(const char* key, int newValue) {
   for (int i = 0; i < sizeof(settings) / sizeof(settings[0]); i++) {
       if (strcmp(settings[i].name, key) == 0) {
@@ -134,8 +170,22 @@ void setSettingValue(const char* key, int newValue) {
   debugPrint("setSettingValue: Setting '%s' not found!\n", key);
 }
 
+//======================================================METAR Processing /API Functions ====================================================//
+ // Set the LED color based on flight category
+ void setLEDColor(String flightCat, int LED){
+  if (flightCat == "VFR") {
+    leds[LED] = vfr_color;
+  } else if (flightCat == "MVFR") {
+    leds[LED] = mvfr_color;
+  } else if (flightCat == "IFR") {
+    leds[LED] = ifr_color;
+  } else if (flightCat == "LIFR") {
+    leds[LED] = lifr_color;
+  }
+}
+
 // Function to determine flight category
-String determineFlightCategory(float visibility, int ceiling,String type) {
+ String determineFlightCategory(float visibility, int ceiling,String type) {
   if (type == "FEW" || type == "CLR" || type == "SCT") {
     ceiling = 10000;
  }
@@ -151,19 +201,7 @@ String determineFlightCategory(float visibility, int ceiling,String type) {
 
   return "N/A"; // Catch-all for undetermined cases
 }
-
-void setLEDColor(String flightCat, int LED){
-    // Set the LED color based on flight category
-          if (flightCat == "VFR") {
-            leds[LED] = vfr_color;
-          } else if (flightCat == "MVFR") {
-            leds[LED] = mvfr_color;
-          } else if (flightCat == "IFR") {
-            leds[LED] = ifr_color;
-          } else if (flightCat == "LIFR") {
-            leds[LED] = lifr_color;
-          }
-}
+ 
 
 //Get METAR Data and Set LED Colors
 void fetchMetarData() {
@@ -290,58 +328,61 @@ void fetchMetarData() {
   http.end();
 }
 
-void handleFileUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
-  if (index == 0) { // Start of file upload
-      Serial.println("Upload Start");
-      // Prepare the update
-      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-          Serial.println("Update failed to begin");
-          return;
-      }
-  }
-
-  // Write the uploaded data
-  if (!Update.write(data, len)) {
-      Serial.println("Update failed while writing");
-      return;
-  }
-
-  if (final) {
-      // End of file upload
-      if (Update.end()) {
-          Serial.println("Update complete");
-          ESP.restart();  // Restart ESP after successful update
-      } else {
-          Serial.println("Update failed during finalization");
-      }
-  }
-}
-
-bool isTimeInRange() {
-    timeClient.update();
-    int currentHour = timeClient.getHours();
-    Serial.println(currentHour);
-    return (currentHour >= settings[1].value && currentHour < settings[2].value);
-}
-
-
+//Check Metars disreading 15 min update but still respects the time schedule
 void checkMetars(){
 
-        if (isTimeInRange()) {
-          Serial.println("Turn ON");
-          // Add code to turn on your device
-      
-        fetchMetarData();
-      
-    } else {
-        Serial.println("Turn OFF");
-        fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
-        FastLED.show();
-        
-      }
-    
+  if (isTimeInRange()) {
+    Serial.println("Turn ON");
+    // Add code to turn on your device
+
+  fetchMetarData();
+
+} else {
+  Serial.println("Turn OFF");
+  fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+  FastLED.show();
+  
 }
-// Function to load HTML from SPIFFS
+
+}
+
+
+void printMetars(){
+  for (JsonObject metar : lastMetars) {
+        const String icaoId = metar["icaoId"];
+        // Fetch and process METAR data for this airport
+        float temp = metar["temp"];
+        int wdir = metar["wdir"];
+        int wspd = metar["wspd"];
+        const char* rawOb = metar["rawOb"];
+        const char* name = metar["name"];
+        int ceiling = -1; // Initialize ceiling to invalid value
+         float visib;
+          if (metar["visib"].is<const char*>()) {
+            String visibStr = metar["visib"].as<const char*>();
+            if (visibStr == "10+") {
+              visib = 10.0; // Use 10.1 to represent "10+" as a float
+            } else {
+              visib = visibStr.toFloat(); // Convert string to float
+            }
+          } else if (metar["visib"].is<float>()) {
+            visib = metar["visib"].as<float>(); // Directly assign float values
+          } else {
+            visib = -1.0; // Default value for missing or invalid data
+          }
+      // debugPrint("\nAirport: %s\n", name ? name : "Unknown");
+      // debugPrint("  ICAO ID: %s\n", icaoId ? icaoId : "Unknown");
+      // debugPrint("  Temperature: %.1f°C\n", temp != -999 ? temp : NAN);
+      // debugPrint("  Wind Direction: %s\n", wdir != -1 ? String(wdir).c_str() : "Unknown");
+      // debugPrint("  Wind Speed: %s knots\n", wspd != -1 ? String(wspd).c_str() : "Unknown");
+      // debugPrint("  Visibility: %.1f miles\n", visib != -999 ? visib : NAN);
+      // debugPrint("  Metar Report: %s\n", rawOb ? rawOb : "Unknown");
+    delay(30000);
+  }
+}
+
+//=======================================================HTML/WEB Functions=================================================================//
+ // Function to load HTML from SPIFFS
 String loadHTML(const char* filename) {
   File file = SPIFFS.open(filename, "r");
   if (!file) {
@@ -358,7 +399,7 @@ String loadHTML(const char* filename) {
   return content;
 }
 
-// Serve the HTML webpage
+ // Serve the HTML webpage
 void serveWebPage() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
       String html = loadHTML("/index.html");
@@ -438,7 +479,37 @@ server.on("/fetch", HTTP_GET, [](AsyncWebServerRequest *request) {
 
 }
 
-// Wi-Fi setup
+ //Attempt to Get OTA File Upload Working
+void handleFileUpload(AsyncWebServerRequest *request, const String& filename, size_t index, uint8_t *data, size_t len, bool final) {
+  if (index == 0) { // Start of file upload
+      Serial.println("Upload Start");
+      // Prepare the update
+      if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+          Serial.println("Update failed to begin");
+          return;
+      }
+  }
+
+  // Write the uploaded data
+  if (!Update.write(data, len)) {
+      Serial.println("Update failed while writing");
+      return;
+  }
+
+  if (final) {
+      // End of file upload
+      if (Update.end()) {
+          Serial.println("Update complete");
+          ESP.restart();  // Restart ESP after successful update
+      } else {
+          Serial.println("Update failed during finalization");
+      }
+  }
+}
+
+//========================================================Start-Up Functions================================================================//
+
+ // Wi-Fi setup
 void setupWiFi() {
   WiFiManager wm;
   if (!wm.autoConnect("ESP-MetarMap")) {
@@ -452,41 +523,7 @@ void setupWiFi() {
 
 }
 
-void printMetars(){
-  for (JsonObject metar : lastMetars) {
-        const String icaoId = metar["icaoId"];
-        // Fetch and process METAR data for this airport
-        float temp = metar["temp"];
-        int wdir = metar["wdir"];
-        int wspd = metar["wspd"];
-        const char* rawOb = metar["rawOb"];
-        const char* name = metar["name"];
-        int ceiling = -1; // Initialize ceiling to invalid value
-         float visib;
-          if (metar["visib"].is<const char*>()) {
-            String visibStr = metar["visib"].as<const char*>();
-            if (visibStr == "10+") {
-              visib = 10.0; // Use 10.1 to represent "10+" as a float
-            } else {
-              visib = visibStr.toFloat(); // Convert string to float
-            }
-          } else if (metar["visib"].is<float>()) {
-            visib = metar["visib"].as<float>(); // Directly assign float values
-          } else {
-            visib = -1.0; // Default value for missing or invalid data
-          }
-      // debugPrint("\nAirport: %s\n", name ? name : "Unknown");
-      // debugPrint("  ICAO ID: %s\n", icaoId ? icaoId : "Unknown");
-      // debugPrint("  Temperature: %.1f°C\n", temp != -999 ? temp : NAN);
-      // debugPrint("  Wind Direction: %s\n", wdir != -1 ? String(wdir).c_str() : "Unknown");
-      // debugPrint("  Wind Speed: %s knots\n", wspd != -1 ? String(wspd).c_str() : "Unknown");
-      // debugPrint("  Visibility: %.1f miles\n", visib != -999 ? visib : NAN);
-      // debugPrint("  Metar Report: %s\n", rawOb ? rawOb : "Unknown");
-    delay(30000);
-  }
-}
-
-
+ //Start-up LED Sequence
 void testStartupSequence() {
   Serial.println("Starting Up...");
 
@@ -509,7 +546,8 @@ void testStartupSequence() {
   FastLED.show();
 }
 
-// Setup function
+
+//========================================================Setup Function====================================================================//
 void setup() {
   Serial.begin(115200);
   delay(1000);
@@ -521,8 +559,13 @@ void setup() {
   ledBrightness = getSettingValue("led_brightness");
   settings[1].value = getSettingValue("start_time");
   settings[2].value = getSettingValue("end_time");
-  //FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_AIRPORTS);
+  //Load Depending which led type
+  #ifdef WS2811
   FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
+  #else
+  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_AIRPORTS);
+  #endif
+
   FastLED.setBrightness(ledBrightness);
   FastLED.clear();
   FastLED.show();
