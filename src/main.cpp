@@ -12,19 +12,18 @@
 #include <SPIFFS.h>
 #include <ESPmDNS.h>
 
+
+//Airports List
+const char* airports[] = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", "KSDL", "KFFZ", "KIWA", "KSRQ", "KSPG", "KPIE", "KTPA", "KBKV", "KZPH", "KLAL"};
+
 //Pin for LEDs
 #define DATA_PIN 25
-
-//How many minutes map updates
-#define UPADTE_TIME 15
 
 //DEFINE LED TYPE - WS2812B is default
 #define WS2811_LED
 
-//Airports List
-const char* airports[] = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", 
-                                  "KSDL", "KFFZ", "KIWA", "KSRQ", "KSPG",
-                                  "KPIE", "KTPA", "KBKV", "KZPH", "KLAL"};
+//How many minutes map updates
+#define UPADTE_TIME 15
 
 // Debug mode
 bool debug = false;
@@ -44,18 +43,19 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", -25200, 60000); //set for MST -7
 // UTC+3	+3	10800
 
 
-// Struct to hold RGB values
+// Struct to hold RGB values DO NOT EDIT
 struct RGBColor {
   uint8_t r;
   uint8_t g;
   uint8_t b;
 };
-
+//CHANGE THESE RGB VALUES TO CHANGE CONDITION COLORS
 const RGBColor VFR = {0,255,0};
 const RGBColor MVFR = {0,0,255};
 const RGBColor IFR = {255,0,0};
 const RGBColor LIFR = {120,255,180};
 
+//DO NOT EDIT ( UNLESS ADDING NEW LED TYPE)
 #ifdef WS2811_LED
 //RGB
 CRGB vfr_color(VFR.r, VFR.g, VFR.b);
@@ -73,20 +73,15 @@ CRGB lifr_color(LIFR.g, LIFR.r, LIFR.b);
 #endif
 
 
-// Timing interval (15 minutes)
-constexpr unsigned long INTERVAL = UPADTE_TIME * 60 * 1000; // Milliseconds
-          
-//map 1
-//String airports[] = {"KDUG", "KOLS", "KTUS", "KPHX", "KNYL", "KGXF", "KPAN", "KSOW", "KDVT", "KINW", "KPGA", "KFLG", "KIGM", "KGCN", "KPRC", "KCMR", "KSEZ"};
-
-// MAP 2
-//String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
+      
 
 
 //DONT CHANGE ANYTHING BELOW HERE======================================================================================//
  
 int ledBrightness = 75; 
-
+// Timing interval (15 minutes)
+constexpr unsigned long INTERVAL = UPADTE_TIME * 60 * 1000; // Milliseconds
+    
 struct Preference {
   const char* name;
   int value;
@@ -110,6 +105,11 @@ JsonArray lastMetars;
 
 // Web server setup
 AsyncWebServer server(80);
+//map 1
+//String airports[] = {"KDUG", "KOLS", "KTUS", "KPHX", "KNYL", "KGXF", "KPAN", "KSOW", "KDVT", "KINW", "KPGA", "KFLG", "KIGM", "KGCN", "KPRC", "KCMR", "KSEZ"};
+
+// MAP 2
+//String airports[] = {"KDUG", "KOLS", "KSOW", "KDVT", "KTUS", "KGXF", "KNYL", "KA39", "KSEZ", "KPHX", "KINW", "KFLG", "KGCN", "KPGA"};
 
 //===================================================== Helper Functions ===================================================================//
 // Debug print helper
