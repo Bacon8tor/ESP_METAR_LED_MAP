@@ -1,4 +1,4 @@
-# ESP_IFR_LED_MAP
+# ESP_METAR_LED_MAP
 
 This project was developed using ChatGPT and interacts with the [Aviation Weather API](https://aviationweather.gov/) to retrieve METAR data for a list of specified airports. Based on the cloud ceiling and visibility data, it determines the flight conditions and displays them using color-coded LEDs.
 
