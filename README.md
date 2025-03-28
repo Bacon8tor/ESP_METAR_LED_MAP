@@ -57,6 +57,4 @@ String airports[] = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT",
 I have made this project into a platformio project, and have included the library folders locally. 
 
 
-## License
 
-This project is open-source and available under the MIT License.
