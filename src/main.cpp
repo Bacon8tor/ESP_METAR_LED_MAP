@@ -19,10 +19,10 @@
 #define UPADTE_TIME 15
 
 //DEFINE LED TYPE - WS2812B is default
-//#define WS2811
+#define WS2811_LED
 
 //Airports List
-const char* airports[] PROGMEM = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", 
+const char* airports[] = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", 
                                   "KSDL", "KFFZ", "KIWA", "KSRQ", "KSPG",
                                   "KPIE", "KTPA", "KBKV", "KZPH", "KLAL"};
 
@@ -56,7 +56,7 @@ const RGBColor MVFR = {0,0,255};
 const RGBColor IFR = {255,0,0};
 const RGBColor LIFR = {120,255,180};
 
-#ifdef WS2811
+#ifdef WS2811_LED
 //RGB
 CRGB vfr_color(VFR.r, VFR.g, VFR.b);
 CRGB mvfr_color(MVFR.r, MVFR.g, MVFR.b);
@@ -564,11 +564,13 @@ void setup() {
   ledBrightness = getSettingValue("led_brightness");
   settings[1].value = getSettingValue("start_time");
   settings[2].value = getSettingValue("end_time");
+  
   //Load Depending which led type
-  #ifdef WS2811
-  FastLED.addLeds<WS2811, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
+  #ifdef WS2811_LED
+  //FastLED.addLeds<WS2811, DATA_PIN,RGB>(leds,NUM_AIRPORTS);
+  FastLED.addLeds<WS2811, DATA_PIN, GRB>(leds, 15);
   #else
-  FastLED.addLeds<WS2812B, DATA_PIN, GRB>(leds, NUM_AIRPORTS);
+  FastLED.addLeds<WS2812B, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
   #endif
 
   FastLED.setBrightness(ledBrightness);
