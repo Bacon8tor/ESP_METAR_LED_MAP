@@ -2,7 +2,7 @@
 #include <ArduinoJson.h>
 #include <WiFiManager.h>
 #include <HTTPClient.h>
-#include <FastLED.h>
+#include <Adafruit_NeoPixel.h>
 #include <Preferences.h>
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
@@ -20,13 +20,13 @@ const char* airports[] = {"KCHD", "KPHX", "KGYR", "KGEU", "KDVT", "KSDL", "KFFZ"
 #define DATA_PIN 25
 
 //DEFINE LED TYPE - WS2812B is default
-#define WS2811_LED
+//#define WS2811_LED
 
 //How many minutes map updates
 #define UPADTE_TIME 15
 
 // Debug mode
-bool debug = false;
+bool debug = true;
 
 //Get Time
 WiFiUDP ntpUDP;
@@ -54,27 +54,7 @@ const RGBColor VFR = {0,255,0};
 const RGBColor MVFR = {0,0,255};
 const RGBColor IFR = {255,0,0};
 const RGBColor LIFR = {120,255,180};
-
-//DO NOT EDIT ( UNLESS ADDING NEW LED TYPE)
-#ifdef WS2811_LED
-//RGB
-CRGB vfr_color(VFR.r, VFR.g, VFR.b);
-CRGB mvfr_color(MVFR.r, MVFR.g, MVFR.b);
-CRGB ifr_color(IFR.r, IFR.g, IFR.b);
-CRGB lifr_color(LIFR.r, LIFR.g, LIFR.b);
-
-#else
-//GRB for WS2812B
-CRGB vfr_color(VFR.g, VFR.r, VFR.b);
-CRGB mvfr_color(MVFR.g, MVFR.r, MVFR.b);
-CRGB ifr_color(IFR.g, IFR.r, IFR.b);
-CRGB lifr_color(LIFR.g, LIFR.r, LIFR.b);
-
-#endif
-
-
-      
-
+const RGBColor BLACK = {0,0,0};
 
 //DONT CHANGE ANYTHING BELOW HERE======================================================================================//
  
@@ -97,7 +77,13 @@ Preferences preferences;
 
 unsigned long previousMillis = 0;
 const int NUM_AIRPORTS = sizeof(airports) / sizeof(airports[0]);
-CRGB leds[NUM_AIRPORTS];
+
+//WS2812B
+#ifndef WS2811_LED
+Adafruit_NeoPixel strip(NUM_AIRPORTS, DATA_PIN, NEO_RGB + NEO_KHZ800);
+#else
+Adafruit_NeoPixel strip(NUM_AIRPORTS, DATA_PIN, NEO_GRB + NEO_KHZ400);
+#endif
 
 //Need to update to JSON Document 
 DynamicJsonDocument doc(512); // Adjust size as needed
@@ -132,28 +118,7 @@ bool isTimeInRange() {
 
 //===================================================== Get/Set Preferences ================================================================//
 
- // Function to get the value of a setting by name (loads from Preferences)
-int getSettingValue(const char* key) {
-  preferences.begin("settings", true);  // Open Preferences in read-only mode
-  int value = preferences.getInt(key, -1);  // Get value or return -1 if not found
-  preferences.end();
-
-  if (value == -1) {  // If not found, use the default from settings array
-      for (int i = 0; i < sizeof(settings) / sizeof(settings[0]); i++) {
-          if (strcmp(settings[i].name, key) == 0) {
-              value = settings[i].value;
-              break;
-          }
-      }
-      debugPrint("getSettingValue: '%s' not found in Preferences, using default %d\n", key, value);
-  } else {
-      debugPrint("getSettingValue: Loaded '%s' with value %d from Preferences\n", key, value);
-  }
-
-  return value;
-}
-
- // Function to set the value of a setting by name (saves to Preferences)
+// Function to set the value of a setting by name (saves to Preferences)
 void setSettingValue(const char* key, int newValue) {
   for (int i = 0; i < sizeof(settings) / sizeof(settings[0]); i++) {
       if (strcmp(settings[i].name, key) == 0) {
@@ -171,17 +136,59 @@ void setSettingValue(const char* key, int newValue) {
   debugPrint("setSettingValue: Setting '%s' not found!\n", key);
 }
 
+ // Function to get the value of a setting by name (loads from Preferences)
+int getSettingValue(const char* key) {
+  preferences.begin("settings", true);  // Open Preferences in read-only mode
+  int value = preferences.getInt(key, -1);  // Get value or return -1 if not found
+  preferences.end();
+
+  if (value == -1) {  // If not found, use the default from settings array
+      for (int i = 0; i < sizeof(settings) / sizeof(settings[0]); i++) {
+          if (strcmp(settings[i].name, key) == 0) {
+              value = settings[i].value;
+              break;
+          }
+      }
+      debugPrint("getSettingValue: '%s' not found in Preferences, using default %d\n", key, value);
+      setSettingValue(key,value);
+  } else {
+      debugPrint("getSettingValue: Loaded '%s' with value %d from Preferences\n", key, value);
+  }
+
+  return value;
+}
+
+ 
 //======================================================METAR Processing /API Functions ====================================================//
+//NEO PIXEL LIBRARY
+void setColor(int ledIndex, RGBColor color) {
+  if (ledIndex >= 0 && ledIndex < strip.numPixels()) {
+      strip.setPixelColor(ledIndex, strip.Color(color.r, color.g, color.b));
+      strip.show();
+  }
+}
+
+void fillSolid(RGBColor color) {
+  for (int i = 0; i < strip.numPixels(); i++) {
+      strip.setPixelColor(i, strip.Color(color.r, color.g, color.b));
+  }
+  strip.show();
+}
+
  // Set the LED color based on flight category
  void setLEDColor(String flightCat, int LED){
   if (flightCat == "VFR") {
-    leds[LED] = vfr_color;
+    //leds[LED] = vfr_color;
+    setColor(LED, VFR); // Set LED 1 to VFR (Green)
   } else if (flightCat == "MVFR") {
-    leds[LED] = mvfr_color;
+    //leds[LED] = mvfr_color;
+    setColor(LED, MVFR);
   } else if (flightCat == "IFR") {
-    leds[LED] = ifr_color;
+    //leds[LED] = ifr_color;
+    setColor(LED, IFR);
   } else if (flightCat == "LIFR") {
-    leds[LED] = lifr_color;
+    //leds[LED] = lifr_color;
+    setColor(LED, LIFR);
   }
 }
 
@@ -316,7 +323,8 @@ void fetchMetarData() {
       // If the airport's ICAO code wasn't found in the METAR response
       if (!found) {
         debugPrint("Missing METAR data for ICAO: %s\n", airportIcao);
-        leds[i] = CRGB::Black;  // Set a default color if METAR is missing
+       // leds[i] = CRGB::Black;  // Set a default color if METAR is missing
+        setColor(i, BLACK);
       }
     }
     lastMetars = metars;
@@ -324,7 +332,8 @@ void fetchMetarData() {
     debugPrint("HTTP request failed with code: %d\n", httpCode);
   }
   
-  FastLED.show();
+ // FastLED.show();
+ strip.show(); // Initialize all pixels to 'off'
   http.end();
 }
 
@@ -339,8 +348,9 @@ void checkMetars(){
 
 } else {
   Serial.println("Turn OFF");
-  fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
-  FastLED.show();
+  //fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+  fillSolid(BLACK);
+ // FastLED.show();
   
 }
 
@@ -435,8 +445,10 @@ void serveWebPage() {
 server.on("/updatebrightness", HTTP_POST, [](AsyncWebServerRequest *request) {
     if (request->hasParam("brightness", true)) {
         ledBrightness = request->getParam("brightness", true)->value().toInt();
-        FastLED.setBrightness(ledBrightness);
-        FastLED.show();
+        //FastLED.setBrightness(ledBrightness);
+        //FastLED.show();
+        strip.setBrightness(ledBrightness);
+        strip.show();
         setSettingValue("led_brightness", ledBrightness);
         debugPrint("New Led Brightness: %d\n", ledBrightness);
     }
@@ -533,24 +545,31 @@ void testStartupSequence() {
   Serial.println("Starting Up...");
 
   for (int i = 1; i <= NUM_AIRPORTS; i++) { // Start with 1 LED, end with NUM_AIRPORTS LEDs
-      uint8_t thisHue = beatsin8(10, 0, 255); // Generate a changing hue
-      fill_rainbow(leds, i, thisHue, 10); // Gradually increase the number of LEDs lit
-      FastLED.show();
+      uint8_t thisHue = (i * 255) / NUM_AIRPORTS; // Generate a changing hue based on the index
+      for (int j = 0; j < i; j++) {
+          // Set each LED to the calculated hue
+          strip.setPixelColor(j, strip.Color(thisHue, 255 - thisHue, 0)); // Example: Hue to RGB
+      }
+      strip.show();
       delay(200);
   }
- // Keep the animation running with all LEDs on
- for (int j = 0; j < 30; j++) { // Run animation for a set duration
-  uint8_t thisHue = beatsin8(10, 0, 255);
-  fill_rainbow(leds, NUM_AIRPORTS, thisHue, 10);
-  FastLED.show();
-  delay(100);
-}
+
+  // Keep the animation running with all LEDs on
+  for (int j = 0; j < 30; j++) { // Run animation for a set duration
+      uint8_t thisHue = (j * 255) / NUM_AIRPORTS;
+      for (int i = 0; i < NUM_AIRPORTS; i++) {
+          strip.setPixelColor(i, strip.Color(thisHue, 255 - thisHue, 0)); // Example: Gradient effect
+      }
+      strip.show();
+      delay(100);
+  }
+
   // Turn off all LEDs after the sequence
-  fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
-
-  FastLED.show();
+  for (int i = 0; i < NUM_AIRPORTS; i++) {
+      strip.setPixelColor(i, strip.Color(0, 0, 0)); // Turn off LED
+  }
+  strip.show();
 }
-
 //========================================================Setup Function====================================================================//
 
 void setup() {
@@ -568,15 +587,17 @@ void setup() {
   //Load Depending which led type
   #ifdef WS2811_LED
   //FastLED.addLeds<WS2811, DATA_PIN,RGB>(leds,NUM_AIRPORTS);
-  FastLED.addLeds<WS2811, DATA_PIN, GRB>(leds, 15);
+  //FastLED.addLeds<WS2811, DATA_PIN, GRB>(leds, 15);
   #else
-  FastLED.addLeds<WS2812B, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
+  //FastLED.addLeds<WS2812B, DATA_PIN, RGB>(leds, NUM_AIRPORTS);
   #endif
 
-  FastLED.setBrightness(ledBrightness);
-  FastLED.clear();
-  FastLED.show();
-  
+  // FastLED.setBrightness(ledBrightness);
+  // FastLED.clear();
+  // FastLED.show();
+  strip.setBrightness(ledBrightness);
+  strip.clear();
+  strip.show();
   //SPIFFS
   if (!SPIFFS.begin()) {
     Serial.println("SPIFFS Mount Failed");
@@ -607,8 +628,9 @@ void loop() {
       
     } else {
         Serial.println("Turn OFF");
-        fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
-        FastLED.show();
+        // fill_solid(leds, NUM_AIRPORTS, CRGB::Black);
+        // FastLED.show();
+        fillSolid(BLACK);
         
       }
     }
